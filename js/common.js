@@ -31,10 +31,22 @@ function initScale() {
   if (!dashboard) return;
 
   function resize() {
-    const scaleX = window.innerWidth / 1920;
-    const scaleY = window.innerHeight / 1080;
-    const scale = Math.min(scaleX, scaleY);
-    dashboard.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window && window.innerWidth < 1024);
+    const isPortrait = window.innerHeight > window.innerWidth;
+
+    if (isMobile && isPortrait) {
+      // Mobile Portrait: Rotate 90deg to enforce landscape rendering
+      const scaleX = window.innerHeight / 1920;
+      const scaleY = window.innerWidth / 1080;
+      const scale = Math.min(scaleX, scaleY);
+      dashboard.style.transform = `translate(-50%, -50%) rotate(90deg) scale(${scale})`;
+    } else {
+      // Landscape or PC Desktop: Normal scale
+      const scaleX = window.innerWidth / 1920;
+      const scaleY = window.innerHeight / 1080;
+      const scale = Math.min(scaleX, scaleY);
+      dashboard.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    }
     dashboard.style.transformOrigin = 'center center';
   }
 
