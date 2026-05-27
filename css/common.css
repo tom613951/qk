@@ -1,0 +1,391 @@
+/* ============================================================
+   DataVision 全球数据指挥中心 - 设计系统
+   Design System & Global Styles
+   ============================================================ */
+
+/* ---- Fonts ---- */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+/* ============================================================
+   Design Tokens
+   ============================================================ */
+:root {
+  /* Base Colors */
+  --bg-darkest: #030615;
+  --bg-dark: #050a1a;
+  --bg-primary: #0a0e27;
+  --bg-secondary: #0f1535;
+  --bg-tertiary: #141a3a;
+  --bg-elevated: #1a2148;
+
+  /* Accent Colors */
+  --cyan: #00f2fe;
+  --cyan-50: rgba(0, 242, 254, 0.5);
+  --cyan-30: rgba(0, 242, 254, 0.3);
+  --cyan-15: rgba(0, 242, 254, 0.15);
+  --cyan-08: rgba(0, 242, 254, 0.08);
+  --cyan-05: rgba(0, 242, 254, 0.05);
+  --blue: #4facfe;
+  --blue-50: rgba(79, 172, 254, 0.5);
+  --blue-30: rgba(79, 172, 254, 0.3);
+  --purple: #7c3aed;
+  --purple-50: rgba(124, 58, 237, 0.5);
+  --purple-30: rgba(124, 58, 237, 0.3);
+  --green: #00e676;
+  --green-50: rgba(0, 230, 118, 0.5);
+  --red: #ff5252;
+  --red-50: rgba(255, 82, 82, 0.5);
+  --orange: #ff9100;
+  --orange-50: rgba(255, 145, 0, 0.5);
+  --yellow: #ffd740;
+  --pink: #ff4081;
+  --teal: #00bfa5;
+
+  /* Text Colors */
+  --text-bright: #ffffff;
+  --text-primary: #e0e6ff;
+  --text-secondary: rgba(224, 230, 255, 0.65);
+  --text-dim: rgba(224, 230, 255, 0.35);
+
+  /* Gradients */
+  --grad-cyan: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --grad-purple: linear-gradient(135deg, #7c3aed 0%, #4facfe 100%);
+  --grad-warm: linear-gradient(135deg, #ff9100 0%, #ff5252 100%);
+  --grad-green: linear-gradient(135deg, #00e676 0%, #00bfa5 100%);
+  --grad-pink: linear-gradient(135deg, #ff4081 0%, #7c3aed 100%);
+  --grad-header: linear-gradient(90deg, transparent 0%, rgba(0, 242, 254, 0.06) 50%, transparent 100%);
+
+  /* Shadows */
+  --glow-sm: 0 0 10px rgba(0, 242, 254, 0.15);
+  --glow-md: 0 0 20px rgba(0, 242, 254, 0.2);
+  --glow-lg: 0 0 40px rgba(0, 242, 254, 0.25);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-deep: 0 8px 40px rgba(0, 0, 0, 0.6);
+
+  /* Layout */
+  --header-h: 70px;
+  --gap: 12px;
+  --gap-sm: 8px;
+  --radius: 4px;
+  --radius-lg: 8px;
+
+  /* Fonts */
+  --font-display: 'Orbitron', sans-serif;
+  --font-number: 'Rajdhani', 'Orbitron', monospace;
+  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-darkest);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: inherit; text-decoration: none; }
+ul, ol { list-style: none; }
+img { max-width: 100%; display: block; }
+
+/* ============================================================
+   Custom Scrollbar
+   ============================================================ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--cyan-30); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cyan-50); }
+
+/* ============================================================
+   Dashboard Container & Auto-Scale
+   ============================================================ */
+.dashboard {
+  width: 1920px;
+  height: 1080px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 242, 254, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(124, 58, 237, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(79, 172, 254, 0.03) 0%, transparent 40%),
+    linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-darkest) 100%);
+}
+
+/* Subtle grid background pattern */
+.dashboard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 242, 254, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 254, 0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   Layout: Dashboard Body
+   ============================================================ */
+.dashboard-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 450px 1fr 450px;
+  gap: var(--gap);
+  padding: 0 var(--gap) var(--gap) var(--gap);
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.column .panel { flex: 1; min-height: 0; }
+
+.center-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.center-main { flex: 1; min-height: 0; }
+.center-bottom { height: 100px; flex-shrink: 0; }
+
+/* ============================================================
+   Particles Canvas
+   ============================================================ */
+#particles-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ============================================================
+   Loading Overlay
+   ============================================================ */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-darkest);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 10000;
+  transition: opacity 0.6s ease;
+}
+
+.loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid transparent;
+  border-top: 3px solid var(--cyan);
+  border-right: 3px solid var(--blue);
+  border-radius: 50%;
+  animation: rotate 1s linear infinite;
+}
+
+.loading-text {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 6px;
+  color: var(--cyan);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   Page Transitions
+   ============================================================ */
+.page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-darkest);
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.page-transition-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.dashboard.entering {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ============================================================
+   Keyframe Animations
+   ============================================================ */
+@keyframes scanLine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 4px var(--cyan-30); }
+  50% { box-shadow: 0 0 16px var(--cyan-50), 0 0 30px var(--cyan-15); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes textShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: var(--cyan-15); }
+  50% { border-color: var(--cyan-30); }
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px var(--cyan-30)); }
+  50% { filter: brightness(1.2) drop-shadow(0 0 12px var(--cyan-50)); }
+}
+
+@keyframes dataStream {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 0% 100%; }
+}
+
+@keyframes waveMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.text-cyan { color: var(--cyan); }
+.text-blue { color: var(--blue); }
+.text-green { color: var(--green); }
+.text-red { color: var(--red); }
+.text-orange { color: var(--orange); }
+.text-yellow { color: var(--yellow); }
+.text-purple { color: var(--purple); }
+.text-dim { color: var(--text-dim); }
+.text-secondary { color: var(--text-secondary); }
+
+.text-gradient {
+  background: var(--grad-cyan);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-shimmer {
+  background: linear-gradient(90deg, var(--text-primary) 0%, var(--cyan) 50%, var(--text-primary) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: textShimmer 3s linear infinite;
+}
+
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-sm { gap: var(--gap-sm); }
+.gap { gap: var(--gap); }
+.hide { display: none !important; }
+
+/* Stagger animation delays */
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+.delay-6 { animation-delay: 0.6s; }
+.delay-7 { animation-delay: 0.7s; }
+.delay-8 { animation-delay: 0.8s; }

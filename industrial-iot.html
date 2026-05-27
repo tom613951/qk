@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataVision - 工业物联网监控中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* ========== Industrial IoT Theme Overrides ========== */
+    .center-factory-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(0, 191, 165, 0.04) 0%, rgba(10, 14, 39, 0.7) 100%);
+      border: 1px solid var(--cyan-15);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-factory-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+
+    /* Factory Title Overlay */
+    .factory-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+      pointer-events: none;
+    }
+    .factory-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--teal);
+      text-shadow: 0 0 20px rgba(0, 191, 165, 0.4);
+    }
+    .factory-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+
+    /* Factory Stats Overlay */
+    .factory-stats-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 14px;
+      right: 14px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+    .factory-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.75);
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 191, 165, 0.12);
+      backdrop-filter: blur(4px);
+    }
+    .factory-stat .fs-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .factory-stat .fs-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .factory-stat .fs-value {
+      font-family: var(--font-number);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--teal);
+    }
+
+    /* Liquid Gauge Area */
+    .liquid-gauge-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(100% - 52px);
+    }
+    .liquid-gauge-chart {
+      width: 180px;
+      height: 180px;
+    }
+
+    /* Device Stats Row */
+    .device-stats-row {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 4px 0;
+      border-top: 1px solid rgba(0, 191, 165, 0.08);
+    }
+    .device-stat {
+      text-align: center;
+    }
+    .device-stat .ds-value {
+      font-family: var(--font-number);
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .device-stat .ds-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    .ds-divider {
+      width: 1px;
+      height: 28px;
+      background: linear-gradient(180deg, transparent, rgba(0, 191, 165, 0.15), transparent);
+    }
+
+    /* Alert List Custom Styles */
+    .alert-row {
+      display: flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--cyan-05);
+      font-size: 11px;
+      gap: 8px;
+      transition: background 0.3s ease;
+    }
+    .alert-row:hover {
+      background: var(--cyan-05);
+    }
+    .alert-time {
+      font-family: var(--font-number);
+      color: var(--text-dim);
+      font-size: 10px;
+      flex-shrink: 0;
+      width: 42px;
+    }
+    .alert-device {
+      color: var(--text-primary);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+    }
+    .alert-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .alert-badge.critical {
+      background: rgba(255, 82, 82, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(255, 82, 82, 0.25);
+    }
+    .alert-badge.warning {
+      background: rgba(255, 145, 0, 0.12);
+      color: var(--orange);
+      border: 1px solid rgba(255, 145, 0, 0.2);
+    }
+    .alert-badge.info {
+      background: rgba(0, 191, 165, 0.1);
+      color: var(--teal);
+      border: 1px solid rgba(0, 191, 165, 0.2);
+    }
+    .alert-desc {
+      color: var(--text-secondary);
+      font-size: 10px;
+      flex-shrink: 0;
+      width: 100px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Production Progress */
+    .prod-order {
+      margin-bottom: 12px;
+    }
+    .prod-order:last-child {
+      margin-bottom: 0;
+    }
+    .prod-order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .prod-order-id {
+      font-family: var(--font-number);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--teal);
+      letter-spacing: 0.5px;
+    }
+    .prod-order-name {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .prod-order-pct {
+      font-family: var(--font-number);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .prod-progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(0, 191, 165, 0.06);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .prod-progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 1.2s ease;
+      position: relative;
+    }
+    .prod-progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 30px; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25));
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    /* Zone Legend for Factory Floor */
+    .zone-legend {
+      position: absolute;
+      top: 38px;
+      right: 14px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      pointer-events: none;
+    }
+    .zone-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .zone-legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* Status Legend for Factory Floor */
+    .status-legend {
+      position: absolute;
+      top: 38px;
+      left: 14px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      pointer-events: none;
+    }
+    .status-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .status-legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">INDUSTRIAL IoT CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item active" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: 设备在线率 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📡</span> 设备在线率</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 实时</div>
+          </div>
+          <div class="panel-body">
+            <div class="liquid-gauge-area">
+              <div id="chart-liquid" class="liquid-gauge-chart"></div>
+            </div>
+            <div class="device-stats-row">
+              <div class="device-stat">
+                <div class="ds-value" style="color: var(--teal);" id="ds-total">0</div>
+                <div class="ds-label">总设备</div>
+              </div>
+              <div class="ds-divider"></div>
+              <div class="device-stat">
+                <div class="ds-value" style="color: var(--green);" id="ds-online">0</div>
+                <div class="ds-label">在线</div>
+              </div>
+              <div class="ds-divider"></div>
+              <div class="device-stat">
+                <div class="ds-value" style="color: var(--orange);" id="ds-offline">0</div>
+                <div class="ds-label">离线</div>
+              </div>
+              <div class="ds-divider"></div>
+              <div class="device-stat">
+                <div class="ds-value" style="color: var(--red);" id="ds-fault">0</div>
+                <div class="ds-label">故障</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: 产线产能利用率 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">⚙️</span> 产线产能利用率</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 3.2%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-donut" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: 设备故障预警 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🚨</span> 设备故障预警</div>
+            <div class="panel-extra">今日 <span style="color:var(--red);font-family:var(--font-number);font-weight:600;" id="alert-count">12</span> 条</div>
+          </div>
+          <div class="panel-body" style="padding: 0;">
+            <div class="scroll-list-wrapper" id="alert-scroll-wrapper">
+              <div class="scroll-list" id="alert-scroll-list">
+                <!-- generated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-factory-panel">
+          <div class="factory-title-overlay">
+            <h2>FACTORY FLOOR MONITOR</h2>
+            <p>智能工厂实时监控</p>
+          </div>
+          <div class="status-legend">
+            <div class="status-legend-item"><div class="status-legend-dot" style="background:#00e676;box-shadow:0 0 4px #00e676"></div> 运行中</div>
+            <div class="status-legend-item"><div class="status-legend-dot" style="background:#ffd740;box-shadow:0 0 4px #ffd740"></div> 待机</div>
+            <div class="status-legend-item"><div class="status-legend-dot" style="background:#ff5252;box-shadow:0 0 4px #ff5252"></div> 故障</div>
+            <div class="status-legend-item"><div class="status-legend-dot" style="background:#4facfe;box-shadow:0 0 4px #4facfe"></div> 维护</div>
+          </div>
+          <div class="zone-legend">
+            <div class="zone-legend-item"><div class="zone-legend-dot" style="background:rgba(0,191,165,0.6)"></div> 注塑区</div>
+            <div class="zone-legend-item"><div class="zone-legend-dot" style="background:rgba(79,172,254,0.6)"></div> 装配区</div>
+            <div class="zone-legend-item"><div class="zone-legend-dot" style="background:rgba(124,58,237,0.6)"></div> 检测区</div>
+            <div class="zone-legend-item"><div class="zone-legend-dot" style="background:rgba(255,145,0,0.6)"></div> 包装区</div>
+            <div class="zone-legend-item"><div class="zone-legend-dot" style="background:rgba(0,230,118,0.6)"></div> 仓储区</div>
+          </div>
+          <div id="chart-factory" class="chart-container"></div>
+          <div class="factory-stats-overlay">
+            <div class="factory-stat">
+              <div class="fs-dot" style="background:var(--teal);box-shadow:0 0 8px rgba(0,191,165,0.5)"></div>
+              <div>
+                <div class="fs-label">OEE</div>
+                <div class="fs-value" id="fs-oee">87.3%</div>
+              </div>
+            </div>
+            <div class="factory-stat">
+              <div class="fs-dot" style="background:var(--green);box-shadow:0 0 8px var(--green-50)"></div>
+              <div>
+                <div class="fs-label">日产量</div>
+                <div class="fs-value" id="fs-output">12,847</div>
+              </div>
+            </div>
+            <div class="factory-stat">
+              <div class="fs-dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan-50)"></div>
+              <div>
+                <div class="fs-label">合格率</div>
+                <div class="fs-value" id="fs-quality">99.2%</div>
+              </div>
+            </div>
+            <div class="factory-stat">
+              <div class="fs-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange-50)"></div>
+              <div>
+                <div class="fs-label">能耗</div>
+                <div class="fs-value" id="fs-energy">2,847kWh</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: 能耗趋势 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">⚡</span> 能耗趋势</div>
+            <div class="panel-extra">近7日</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-energy" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 5: 温湿度监控 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🌡️</span> 温湿度监控</div>
+            <div class="panel-extra">24H × 8区</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-heatmap" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 6: 生产进度 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📋</span> 生产进度</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 进行中</div>
+          </div>
+          <div class="panel-body" id="prod-progress-body">
+            <!-- generated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Industrial IoT Dashboard - Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(initPage, 200);
+    });
+
+    // Store chart references for updates
+    let factoryChart, energyChart, heatmapChart, donutChart, liquidChart;
+
+    function initPage() {
+      // Animate device stats
+      animateValue(document.getElementById('ds-total'), 0, 3842, 2000);
+      animateValue(document.getElementById('ds-online'), 0, 3719, 2000);
+      animateValue(document.getElementById('ds-offline'), 0, 98, 1800);
+      animateValue(document.getElementById('ds-fault'), 0, 25, 1800);
+
+      // Init all panels
+      initLiquidGauge();
+      initNestedDonut();
+      initAlertList();
+      initFactoryFloor();
+      initEnergyChart();
+      initHeatmap();
+      initProductionProgress();
+
+      // Periodic live updates
+      setInterval(updateLiveData, 5000);
+    }
+
+    // ============================================================
+    // Panel 1: 设备在线率 - Liquid/Water-Ball Gauge
+    // ============================================================
+    function initLiquidGauge() {
+      liquidChart = createChart(document.getElementById('chart-liquid'), {
+        series: [{
+          type: 'gauge',
+          center: ['50%', '50%'],
+          radius: '92%',
+          startAngle: 0,
+          endAngle: 360,
+          min: 0,
+          max: 100,
+          pointer: { show: false },
+          progress: {
+            show: true,
+            overlap: false,
+            roundCap: true,
+            width: 10,
+            itemStyle: {
+              color: {
+                type: 'linear',
+                x: 0, y: 0, x2: 1, y2: 0,
+                colorStops: [
+                  { offset: 0, color: '#00bfa5' },
+                  { offset: 0.5, color: '#00e676' },
+                  { offset: 1, color: '#00f2fe' }
+                ]
+              }
+            }
+          },
+          axisLine: {
+            lineStyle: {
+              width: 10,
+              color: [[1, 'rgba(0, 191, 165, 0.08)']]
+            }
+          },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          detail: {
+            valueAnimation: true,
+            formatter: function(val) {
+              return '{value|' + val.toFixed(1) + '}{unit|%}\n{label|ONLINE RATE}';
+            },
+            rich: {
+              value: {
+                fontSize: 36,
+                fontFamily: 'Rajdhani',
+                fontWeight: 700,
+                color: '#00bfa5',
+                textShadow: '0 0 20px rgba(0, 191, 165, 0.5)',
+                lineHeight: 44
+              },
+              unit: {
+                fontSize: 16,
+                fontFamily: 'Rajdhani',
+                fontWeight: 400,
+                color: 'rgba(0, 191, 165, 0.7)',
+                padding: [0, 0, 4, 2]
+              },
+              label: {
+                fontSize: 10,
+                fontFamily: 'Orbitron',
+                fontWeight: 400,
+                color: 'rgba(224, 230, 255, 0.35)',
+                letterSpacing: 3,
+                lineHeight: 22
+              }
+            },
+            offsetCenter: [0, 0]
+          },
+          title: { show: false },
+          data: [{ value: 96.8 }],
+          animationDuration: 2000,
+          animationEasing: 'cubicOut'
+        }, {
+          // Inner decorative ring
+          type: 'gauge',
+          center: ['50%', '50%'],
+          radius: '72%',
+          startAngle: 90,
+          endAngle: -270,
+          min: 0, max: 100,
+          pointer: { show: false },
+          progress: { show: false },
+          axisLine: {
+            lineStyle: {
+              width: 1,
+              color: [[1, 'rgba(0, 191, 165, 0.12)']]
+            }
+          },
+          axisTick: {
+            show: true,
+            distance: -4,
+            length: 3,
+            lineStyle: { color: 'rgba(0, 191, 165, 0.2)', width: 1 },
+            splitNumber: 2
+          },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          detail: { show: false },
+          title: { show: false },
+          data: [{ value: 0 }]
+        }]
+      });
+    }
+
+    // ============================================================
+    // Panel 2: 产线产能利用率 - Nested Donut
+    // ============================================================
+    function initNestedDonut() {
+      donutChart = createChart(document.getElementById('chart-donut'), {
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          right: 4,
+          top: 'center',
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 10, itemHeight: 6,
+          itemGap: 6,
+          data: ['A线', 'B线', 'C线']
+        },
+        series: [
+          // Inner ring: production lines overall
+          {
+            name: '产线',
+            type: 'pie',
+            radius: ['28%', '48%'],
+            center: ['42%', '50%'],
+            label: {
+              show: true,
+              position: 'inner',
+              fontSize: 10,
+              fontWeight: 600,
+              color: '#fff',
+              formatter: '{b}'
+            },
+            labelLine: { show: false },
+            itemStyle: {
+              borderColor: 'rgba(5, 10, 26, 0.8)',
+              borderWidth: 2
+            },
+            data: [
+              { value: 420, name: 'A线', itemStyle: { color: '#00bfa5' } },
+              { value: 380, name: 'B线', itemStyle: { color: '#00e676' } },
+              { value: 350, name: 'C线', itemStyle: { color: '#4facfe' } }
+            ],
+            animationType: 'scale',
+            animationEasing: 'elasticOut',
+            animationDuration: 1500
+          },
+          // Outer ring: breakdown per line
+          {
+            name: '状态',
+            type: 'pie',
+            radius: ['54%', '74%'],
+            center: ['42%', '50%'],
+            label: {
+              show: true,
+              fontSize: 9,
+              color: 'rgba(224, 230, 255, 0.5)',
+              formatter: '{b}\n{d}%',
+              lineHeight: 13
+            },
+            labelLine: {
+              lineStyle: { color: 'rgba(0, 191, 165, 0.2)' },
+              length: 8,
+              length2: 6
+            },
+            itemStyle: {
+              borderColor: 'rgba(5, 10, 26, 0.8)',
+              borderWidth: 1,
+              borderRadius: 3
+            },
+            data: [
+              // A线 breakdown
+              { value: 310, name: '生产中', itemStyle: { color: '#00bfa5' } },
+              { value: 70, name: 'A-待机', itemStyle: { color: 'rgba(0, 191, 165, 0.45)' } },
+              { value: 40, name: 'A-维护', itemStyle: { color: 'rgba(0, 191, 165, 0.2)' } },
+              // B线 breakdown
+              { value: 270, name: 'B-生产', itemStyle: { color: '#00e676' } },
+              { value: 65, name: '待机', itemStyle: { color: 'rgba(0, 230, 118, 0.45)' } },
+              { value: 45, name: 'B-维护', itemStyle: { color: 'rgba(0, 230, 118, 0.2)' } },
+              // C线 breakdown
+              { value: 250, name: 'C-生产', itemStyle: { color: '#4facfe' } },
+              { value: 55, name: 'C-待机', itemStyle: { color: 'rgba(79, 172, 254, 0.45)' } },
+              { value: 45, name: '维护', itemStyle: { color: 'rgba(79, 172, 254, 0.2)' } }
+            ],
+            animationType: 'scale',
+            animationEasing: 'elasticOut',
+            animationDelay: 300,
+            animationDuration: 1500
+          }
+        ]
+      });
+    }
+
+    // ============================================================
+    // Panel 3: 设备故障预警 - Auto-scroll list
+    // ============================================================
+    function initAlertList() {
+      const alerts = [
+        { time: '21:18', device: 'CNC-A03 数控铣床', level: 'critical', levelText: '紧急', desc: '主轴温度异常 92°C' },
+        { time: '21:15', device: 'ROB-B12 焊接机器人', level: 'warning', levelText: '预警', desc: '关节磨损率 78%' },
+        { time: '21:12', device: 'PLC-C07 注塑机', level: 'critical', levelText: '紧急', desc: '液压压力波动 ±15%' },
+        { time: '21:08', device: 'CONV-D04 传送带', level: 'info', levelText: '提示', desc: '运行速度偏低 12%' },
+        { time: '20:56', device: 'AGV-E02 自动导引车', level: 'warning', levelText: '预警', desc: '电池余量 15%' },
+        { time: '20:43', device: 'PRESS-A08 冲压机', level: 'critical', levelText: '紧急', desc: '模具磨损超限' },
+        { time: '20:35', device: 'LASER-B05 激光切割', level: 'warning', levelText: '预警', desc: '光路偏移 0.3mm' },
+        { time: '20:21', device: 'PACK-C11 包装机', level: 'info', levelText: '提示', desc: '耗材余量不足' },
+        { time: '20:14', device: 'INSP-D09 视觉检测', level: 'warning', levelText: '预警', desc: '镜头污渍检测' },
+        { time: '19:58', device: 'COMP-A01 空压机', level: 'critical', levelText: '紧急', desc: '排气温度 105°C' },
+        { time: '19:45', device: 'MILL-B06 研磨机', level: 'info', levelText: '提示', desc: '砂轮寿命 22%' },
+        { time: '19:32', device: 'HEAT-C03 热处理炉', level: 'warning', levelText: '预警', desc: '温控偏差 +8°C' },
+        { time: '19:18', device: 'WELD-D07 超声波焊', level: 'info', levelText: '提示', desc: '焊头磨损预警' },
+        { time: '19:05', device: 'CNC-A09 车床', level: 'warning', levelText: '预警', desc: '刀具寿命 18%' }
+      ];
+
+      const listEl = document.getElementById('alert-scroll-list');
+      listEl.innerHTML = alerts.map(a => `
+        <div class="alert-row">
+          <span class="alert-time">${a.time}</span>
+          <span class="alert-device">${a.device}</span>
+          <span class="alert-badge ${a.level}">${a.levelText}</span>
+          <span class="alert-desc">${a.desc}</span>
+        </div>
+      `).join('');
+
+      initScrollList(document.getElementById('alert-scroll-wrapper'));
+    }
+
+    // ============================================================
+    // Center: Factory Floor Monitor
+    // ============================================================
+    function initFactoryFloor() {
+      // Define zones with areas (xMin, xMax, yMin, yMax)
+      const zones = [
+        { name: '注塑区', xMin: 5, xMax: 25, yMin: 60, yMax: 95, color: 'rgba(0,191,165,0.06)', borderColor: 'rgba(0,191,165,0.15)' },
+        { name: '装配区', xMin: 30, xMax: 55, yMin: 60, yMax: 95, color: 'rgba(79,172,254,0.05)', borderColor: 'rgba(79,172,254,0.12)' },
+        { name: '检测区', xMin: 60, xMax: 78, yMin: 60, yMax: 95, color: 'rgba(124,58,237,0.05)', borderColor: 'rgba(124,58,237,0.12)' },
+        { name: '包装区', xMin: 5, xMax: 35, yMin: 15, yMax: 52, color: 'rgba(255,145,0,0.04)', borderColor: 'rgba(255,145,0,0.1)' },
+        { name: '仓储区', xMin: 40, xMax: 78, yMin: 15, yMax: 52, color: 'rgba(0,230,118,0.04)', borderColor: 'rgba(0,230,118,0.1)' }
+      ];
+
+      // Generate devices in each zone
+      function genDevices(zone, count, prefix) {
+        const devices = [];
+        for (let i = 0; i < count; i++) {
+          const status = Math.random();
+          let st, color;
+          if (status < 0.7) { st = '运行中'; color = '#00e676'; }
+          else if (status < 0.85) { st = '待机'; color = '#ffd740'; }
+          else if (status < 0.93) { st = '维护'; color = '#4facfe'; }
+          else { st = '故障'; color = '#ff5252'; }
+
+          devices.push({
+            name: prefix + '-' + String(i + 1).padStart(2, '0'),
+            value: [
+              DataGen.randomFloat(zone.xMin + 2, zone.xMax - 2, 1),
+              DataGen.randomFloat(zone.yMin + 3, zone.yMax - 3, 1),
+              st === '故障' ? 1 : 0
+            ],
+            status: st,
+            zone: zone.name,
+            itemStyle: { color: color }
+          });
+        }
+        return devices;
+      }
+
+      const allDevices = [
+        ...genDevices(zones[0], 7, 'INJ'),
+        ...genDevices(zones[1], 8, 'ASM'),
+        ...genDevices(zones[2], 6, 'QC'),
+        ...genDevices(zones[3], 6, 'PKG'),
+        ...genDevices(zones[4], 7, 'WH')
+      ];
+
+      const normalDevices = allDevices.filter(d => d.value[2] === 0);
+      const faultDevices = allDevices.filter(d => d.value[2] === 1);
+
+      // Zone label graphics
+      const zoneGraphics = zones.map(z => ([
+        {
+          type: 'rect',
+          shape: {
+            x: 0, y: 0,
+            width: 0, height: 0
+          },
+          style: {
+            fill: z.color,
+            stroke: z.borderColor,
+            lineWidth: 1,
+            lineDash: [4, 3]
+          },
+          // Will be positioned via coordinateSystem
+        }
+      ])).flat();
+
+      // Use markArea for zones
+      const markAreaData = zones.map(z => ([
+        {
+          name: z.name,
+          xAxis: z.xMin,
+          yAxis: z.yMax,
+          itemStyle: { color: z.color, borderColor: z.borderColor, borderWidth: 1, borderType: 'dashed' }
+        },
+        { xAxis: z.xMax, yAxis: z.yMin }
+      ]));
+
+      factoryChart = createChart(document.getElementById('chart-factory'), {
+        backgroundColor: 'transparent',
+        grid: {
+          top: 55, right: 90, bottom: 55, left: 50
+        },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: function (params) {
+            if (params.data && params.data.name) {
+              const d = params.data;
+              return `<div style="font-weight:600;margin-bottom:4px;">${d.name}</div>
+                <span style="color:${d.itemStyle.color}">●</span> 状态: ${d.status}<br/>
+                <span style="color:rgba(224,230,255,0.4)">区域: ${d.zone}</span>`;
+            }
+            return '';
+          }
+        },
+        xAxis: {
+          type: 'value',
+          min: 0, max: 85,
+          show: false
+        },
+        yAxis: {
+          type: 'value',
+          min: 0, max: 100,
+          show: false
+        },
+        series: [
+          // Zone backgrounds using markArea on a dummy series
+          {
+            type: 'scatter',
+            data: [],
+            markArea: {
+              silent: true,
+              label: {
+                show: true,
+                fontSize: 11,
+                color: 'rgba(224, 230, 255, 0.25)',
+                fontFamily: 'Noto Sans SC',
+                position: 'insideTop',
+                offset: [0, 6]
+              },
+              data: markAreaData
+            }
+          },
+          // Normal devices
+          {
+            type: 'scatter',
+            coordinateSystem: 'cartesian2d',
+            data: normalDevices,
+            symbolSize: 14,
+            symbol: 'roundRect',
+            label: {
+              show: false
+            },
+            emphasis: {
+              scale: 1.8,
+              itemStyle: {
+                shadowBlur: 15,
+                shadowColor: 'rgba(0, 230, 118, 0.5)'
+              },
+              label: {
+                show: true,
+                formatter: '{b}',
+                fontSize: 9,
+                color: 'rgba(224,230,255,0.8)',
+                position: 'top',
+                distance: 5
+              }
+            },
+            zlevel: 2,
+            animationDuration: 1500,
+            animationEasing: 'cubicOut'
+          },
+          // Fault devices with pulsing effect
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'cartesian2d',
+            data: faultDevices,
+            symbolSize: 14,
+            symbol: 'roundRect',
+            showEffectOn: 'render',
+            rippleEffect: {
+              brushType: 'stroke',
+              scale: 3.5,
+              period: 3,
+              color: '#ff5252'
+            },
+            label: {
+              show: true,
+              formatter: '{b}',
+              fontSize: 9,
+              color: 'rgba(255, 82, 82, 0.9)',
+              position: 'top',
+              distance: 4
+            },
+            zlevel: 3,
+            animationDuration: 1500
+          },
+          // Decorative grid lines (horizontal)
+          {
+            type: 'line',
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              lineStyle: { color: 'rgba(0, 191, 165, 0.06)', type: 'dashed', width: 1 },
+              data: [
+                { yAxis: 15 }, { yAxis: 30 }, { yAxis: 52 },
+                { yAxis: 60 }, { yAxis: 75 }, { yAxis: 95 }
+              ],
+              label: { show: false }
+            },
+            data: []
+          }
+        ],
+        animationDuration: 1800,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ============================================================
+    // Panel 4: 能耗趋势 - Triple Area Chart
+    // ============================================================
+    function initEnergyChart() {
+      const days = DataGen.generateDayLabels(7);
+
+      energyChart = createChart(document.getElementById('chart-energy'), {
+        grid: { top: 28, right: 12, bottom: 24, left: 40 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        legend: {
+          data: ['电力', '水', '蒸汽'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.45)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3, itemGap: 10
+        },
+        xAxis: {
+          type: 'category',
+          data: days,
+          boundaryGap: false,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, fontSize: 10 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [
+          {
+            name: '电力',
+            type: 'line',
+            data: [2847, 2965, 2734, 2891, 3012, 2756, 2847],
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { color: '#00bfa5', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(0, 191, 165, 0.3)' },
+                  { offset: 1, color: 'rgba(0, 191, 165, 0.01)' }
+                ]
+              }
+            }
+          },
+          {
+            name: '水',
+            type: 'line',
+            data: [1245, 1356, 1198, 1287, 1423, 1178, 1302],
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { color: '#4facfe', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(79, 172, 254, 0.2)' },
+                  { offset: 1, color: 'rgba(79, 172, 254, 0.01)' }
+                ]
+              }
+            }
+          },
+          {
+            name: '蒸汽',
+            type: 'line',
+            data: [876, 923, 845, 901, 967, 834, 889],
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { color: '#00e676', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(0, 230, 118, 0.15)' },
+                  { offset: 1, color: 'rgba(0, 230, 118, 0.01)' }
+                ]
+              }
+            }
+          }
+        ],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ============================================================
+    // Panel 5: 温湿度监控 - Heatmap
+    // ============================================================
+    function initHeatmap() {
+      const zoneNames = ['注塑-1', '注塑-2', '装配-1', '装配-2', '检测区', '包装区', '仓储-1', '仓储-2'];
+      const hours = [];
+      for (let i = 0; i < 24; i++) {
+        hours.push(String(i).padStart(2, '0') + ':00');
+      }
+
+      // Generate heatmap data: [hour, zone, temperature]
+      const heatData = [];
+      for (let z = 0; z < zoneNames.length; z++) {
+        const baseTemp = [42, 45, 28, 30, 24, 26, 20, 18][z];
+        for (let h = 0; h < 24; h++) {
+          // Simulate temperature variation
+          const timeVar = Math.sin((h - 6) * Math.PI / 12) * 8;
+          const noise = DataGen.randomFloat(-3, 3, 1);
+          const temp = Math.round((baseTemp + timeVar + noise) * 10) / 10;
+          heatData.push([h, z, temp]);
+        }
+      }
+
+      heatmapChart = createChart(document.getElementById('chart-heatmap'), {
+        tooltip: {
+          ...tooltipConfig,
+          formatter: function (params) {
+            return `${zoneNames[params.value[1]]}<br/>
+              ${hours[params.value[0]]}<br/>
+              <span style="color:var(--teal);font-weight:700;font-family:Rajdhani;font-size:16px">${params.value[2]}°C</span>`;
+          }
+        },
+        grid: {
+          top: 8,
+          right: 60,
+          bottom: 28,
+          left: 54
+        },
+        xAxis: {
+          type: 'category',
+          data: hours,
+          axisLine: axisLineStyle,
+          axisLabel: {
+            ...axisLabelStyle,
+            fontSize: 9,
+            interval: 3,
+            rotate: 0
+          },
+          axisTick: { show: false },
+          splitArea: { show: false }
+        },
+        yAxis: {
+          type: 'category',
+          data: zoneNames,
+          axisLine: axisLineStyle,
+          axisLabel: {
+            ...axisLabelStyle,
+            fontSize: 9
+          },
+          axisTick: { show: false },
+          splitArea: { show: false }
+        },
+        visualMap: {
+          min: 15,
+          max: 55,
+          calculable: false,
+          orient: 'vertical',
+          right: 4,
+          top: 'center',
+          itemHeight: 120,
+          itemWidth: 10,
+          textStyle: { color: 'rgba(224,230,255,0.4)', fontSize: 9 },
+          inRange: {
+            color: [
+              '#1a3a6a',  // cold blue
+              '#00bfa5',  // teal
+              '#00e676',  // green
+              '#ffd740',  // yellow
+              '#ff9100',  // orange
+              '#ff5252'   // red/hot
+            ]
+          },
+          formatter: function(val) {
+            return Math.round(val) + '°C';
+          }
+        },
+        series: [{
+          type: 'heatmap',
+          data: heatData,
+          label: { show: false },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 191, 165, 0.4)',
+              borderColor: '#00bfa5',
+              borderWidth: 1
+            }
+          },
+          itemStyle: {
+            borderColor: 'rgba(5, 10, 26, 0.4)',
+            borderWidth: 1,
+            borderRadius: 1
+          },
+          progressive: 0,
+          animationDuration: 1500,
+          animationEasing: 'cubicOut'
+        }]
+      });
+    }
+
+    // ============================================================
+    // Panel 6: 生产进度 - Progress Bars
+    // ============================================================
+    const prodOrders = [
+      { id: 'PO-2026-0847', name: '精密齿轮组', pct: 92, color: '#00bfa5', gradEnd: '#00e676' },
+      { id: 'PO-2026-0848', name: '电子控制板', pct: 78, color: '#4facfe', gradEnd: '#00f2fe' },
+      { id: 'PO-2026-0849', name: '液压缸体', pct: 65, color: '#00e676', gradEnd: '#00bfa5' },
+      { id: 'PO-2026-0850', name: '传感器模块', pct: 43, color: '#7c3aed', gradEnd: '#4facfe' },
+      { id: 'PO-2026-0851', name: '密封垫片组', pct: 28, color: '#ff9100', gradEnd: '#ffd740' }
+    ];
+
+    function initProductionProgress() {
+      const body = document.getElementById('prod-progress-body');
+      body.innerHTML = prodOrders.map((o, i) => `
+        <div class="prod-order" style="animation: fadeInUp 0.5s ease both; animation-delay: ${i * 0.1}s">
+          <div class="prod-order-header">
+            <div>
+              <span class="prod-order-id">${o.id}</span>
+              <span class="prod-order-name"> · ${o.name}</span>
+            </div>
+            <div class="prod-order-pct" style="color:${o.color}" id="prod-pct-${i}">${o.pct}%</div>
+          </div>
+          <div class="prod-progress-bar">
+            <div class="prod-progress-fill" id="prod-fill-${i}" style="width:0%;background:linear-gradient(90deg,${o.color},${o.gradEnd})"></div>
+          </div>
+        </div>
+      `).join('');
+
+      // Animate fill bars
+      setTimeout(() => {
+        prodOrders.forEach((o, i) => {
+          const fillEl = document.getElementById('prod-fill-' + i);
+          if (fillEl) fillEl.style.width = o.pct + '%';
+        });
+      }, 400);
+    }
+
+    // ============================================================
+    // Live Data Updates
+    // ============================================================
+    function updateLiveData() {
+      // Update device stats with slight variation
+      const total = 3842;
+      const faultNew = DataGen.random(20, 30);
+      const offlineNew = DataGen.random(85, 115);
+      const onlineNew = total - faultNew - offlineNew;
+      const rateNew = DataGen.randomFloat(95.8, 97.5, 1);
+
+      animateValue(document.getElementById('ds-online'), parseInt(document.getElementById('ds-online').textContent.replace(/,/g,'')) || 3719, onlineNew, 1200);
+      animateValue(document.getElementById('ds-offline'), parseInt(document.getElementById('ds-offline').textContent.replace(/,/g,'')) || 98, offlineNew, 1000);
+      animateValue(document.getElementById('ds-fault'), parseInt(document.getElementById('ds-fault').textContent.replace(/,/g,'')) || 25, faultNew, 1000);
+
+      // Update liquid gauge
+      if (liquidChart) {
+        liquidChart.setOption({
+          series: [{ data: [{ value: rateNew }] }]
+        });
+      }
+
+      // Update factory stats
+      document.getElementById('fs-oee').textContent = DataGen.randomFloat(85.0, 92.0, 1) + '%';
+      document.getElementById('fs-output').textContent = DataGen.random(11500, 13500).toLocaleString();
+      document.getElementById('fs-quality').textContent = DataGen.randomFloat(98.5, 99.8, 1) + '%';
+      document.getElementById('fs-energy').textContent = DataGen.random(2600, 3100).toLocaleString() + 'kWh';
+
+      // Update energy chart with new last data point
+      if (energyChart) {
+        const opt = energyChart.getOption();
+        if (opt && opt.series) {
+          opt.series.forEach((s, i) => {
+            const data = s.data;
+            if (data && data.length > 0) {
+              const base = [2847, 1302, 889][i] || 1000;
+              data[data.length - 1] = base + DataGen.random(-200, 200);
+            }
+          });
+          energyChart.setOption({ series: opt.series.map((s, i) => ({ data: s.data })) });
+        }
+      }
+
+      // Update production progress
+      prodOrders.forEach((o, i) => {
+        const delta = DataGen.randomFloat(0.1, 0.8, 1);
+        o.pct = Math.min(100, parseFloat((o.pct + delta).toFixed(1)));
+        const fillEl = document.getElementById('prod-fill-' + i);
+        const pctEl = document.getElementById('prod-pct-' + i);
+        if (fillEl) fillEl.style.width = o.pct + '%';
+        if (pctEl) pctEl.textContent = o.pct + '%';
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="DataVision 全球数据指挥中心 - 大数据可视化平台">
+  <title>DataVision - 全球数据指挥中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* Page-specific: Command Center */
+    .hero-number-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 0 2px;
+    }
+    .hero-number-row .number-display {
+      font-size: 52px;
+      letter-spacing: 3px;
+      text-shadow: 0 0 30px rgba(0, 242, 254, 0.4), 0 0 60px rgba(0, 242, 254, 0.15);
+    }
+    .hero-number-row .number-unit {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .center-map-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(0, 242, 254, 0.03) 0%, rgba(10, 14, 39, 0.6) 100%);
+      border: 1px solid var(--cyan-15);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-map-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+    .map-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+    }
+    .map-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--cyan);
+      text-shadow: 0 0 20px var(--cyan-30);
+    }
+    .map-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .map-stats-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+    }
+    .map-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.7);
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid var(--cyan-08);
+      backdrop-filter: blur(4px);
+    }
+    .map-stat .ms-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .map-stat .ms-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .map-stat .ms-value {
+      font-family: var(--font-number);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+    /* Alert marquee at the very top */
+    .top-alert-bar {
+      height: 28px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.3), rgba(0, 242, 254, 0.03), rgba(0,0,0,0.3));
+      border-bottom: 1px solid var(--cyan-05);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .top-alert-bar .alert-label {
+      background: var(--grad-cyan);
+      color: var(--bg-darkest);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 12px;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .top-alert-bar .marquee-wrapper {
+      flex: 1;
+      overflow: hidden;
+    }
+    .top-alert-bar .marquee-content {
+      display: flex;
+      animation: marquee 50s linear infinite;
+      white-space: nowrap;
+      gap: 80px;
+      padding-left: 20px;
+    }
+    .top-alert-bar .marquee-item {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .top-alert-bar .marquee-item .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--cyan);
+      flex-shrink: 0;
+    }
+    .top-alert-bar .marquee-item .dot.warn { background: var(--orange); }
+    .top-alert-bar .marquee-item .dot.err { background: var(--red); }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Top Alert Bar -->
+    <div class="top-alert-bar">
+      <div class="alert-label">LIVE</div>
+      <div class="marquee-wrapper">
+        <div class="marquee-content">
+          <span class="marquee-item"><span class="dot"></span>北京数据中心 节点延迟 12ms 运行正常</span>
+          <span class="marquee-item"><span class="dot warn"></span>上海区域 流量激增 23% 已自动扩容</span>
+          <span class="marquee-item"><span class="dot"></span>深圳节点 新增连接 1,284 个 状态正常</span>
+          <span class="marquee-item"><span class="dot err"></span>纽约节点 检测到异常访问 已触发防御策略</span>
+          <span class="marquee-item"><span class="dot"></span>伦敦数据中心 CPU使用率 45% 内存充足</span>
+          <span class="marquee-item"><span class="dot"></span>东京节点 完成版本更新 v3.8.2</span>
+          <span class="marquee-item"><span class="dot warn"></span>新加坡区域 存储容量达 82% 建议扩容</span>
+          <!-- duplicate for seamless loop -->
+          <span class="marquee-item"><span class="dot"></span>北京数据中心 节点延迟 12ms 运行正常</span>
+          <span class="marquee-item"><span class="dot warn"></span>上海区域 流量激增 23% 已自动扩容</span>
+          <span class="marquee-item"><span class="dot"></span>深圳节点 新增连接 1,284 个 状态正常</span>
+          <span class="marquee-item"><span class="dot err"></span>纽约节点 检测到异常访问 已触发防御策略</span>
+          <span class="marquee-item"><span class="dot"></span>伦敦数据中心 CPU使用率 45% 内存充足</span>
+          <span class="marquee-item"><span class="dot"></span>东京节点 完成版本更新 v3.8.2</span>
+          <span class="marquee-item"><span class="dot warn"></span>新加坡区域 存储容量达 82% 建议扩容</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">GLOBAL COMMAND CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item active" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: Global Online Users -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">👥</span> 全球在线用户</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 实时</div>
+          </div>
+          <div class="panel-body">
+            <div class="hero-number-row">
+              <div class="number-display" id="online-count">0</div>
+              <span class="number-unit">人</span>
+            </div>
+            <div class="number-label" style="text-align:center; margin-bottom: 10px;">GLOBAL ONLINE USERS</div>
+            <div class="divider"></div>
+            <div class="stats-row">
+              <div class="stat-item">
+                <div class="stat-value text-cyan" id="stat-asia">0</div>
+                <div class="stat-label">亚太区</div>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <div class="stat-value text-blue" id="stat-europe">0</div>
+                <div class="stat-label">欧洲区</div>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <div class="stat-value text-purple" id="stat-america">0</div>
+                <div class="stat-label">美洲区</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: 24H Event Timeline -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📈</span> 24H 事件趋势</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 12.5%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-timeline" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: System Status Gauges -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">⚙️</span> 系统运行状态</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 正常</div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-row" id="gauge-row">
+              <div id="gauge-cpu" class="chart-container"></div>
+              <div id="gauge-mem" class="chart-container"></div>
+              <div id="gauge-net" class="chart-container"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-map-panel">
+          <div class="map-title-overlay">
+            <h2>GLOBAL NETWORK TOPOLOGY</h2>
+            <p>全球数据节点实时监控</p>
+          </div>
+          <div id="chart-world-map" class="chart-container"></div>
+          <div class="map-stats-overlay">
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--green);box-shadow:0 0 8px var(--green-50)"></div>
+              <div>
+                <div class="ms-label">在线节点</div>
+                <div class="ms-value" id="ms-nodes">18</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan-50)"></div>
+              <div>
+                <div class="ms-label">数据链路</div>
+                <div class="ms-value" id="ms-links">42</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--blue);box-shadow:0 0 8px var(--blue-50)"></div>
+              <div>
+                <div class="ms-label">延迟均值</div>
+                <div class="ms-value" id="ms-latency">28ms</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange-50)"></div>
+              <div>
+                <div class="ms-label">告警事件</div>
+                <div class="ms-value" id="ms-alerts">3</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="center-bottom">
+          <div class="module-cards">
+            <a class="module-card" onclick="navigateTo('smart-city.html'); return false;">
+              <div class="card-icon">🏙️</div>
+              <div class="card-name">智慧城市</div>
+              <div class="card-stat">12 监测点</div>
+            </a>
+            <a class="module-card" onclick="navigateTo('cyber-security.html'); return false;">
+              <div class="card-icon">🛡️</div>
+              <div class="card-name">网络安全</div>
+              <div class="card-stat">99.7% 防御</div>
+            </a>
+            <a class="module-card" onclick="navigateTo('industrial-iot.html'); return false;">
+              <div class="card-icon">🏭</div>
+              <div class="card-name">工业物联网</div>
+              <div class="card-stat">3,842 设备</div>
+            </a>
+            <a class="module-card" onclick="navigateTo('financial.html'); return false;">
+              <div class="card-icon">💹</div>
+              <div class="card-name">金融交易</div>
+              <div class="card-stat">¥2.8T 日额</div>
+            </a>
+            <a class="module-card" onclick="navigateTo('environmental.html'); return false;">
+              <div class="card-icon">🌿</div>
+              <div class="card-name">环境监测</div>
+              <div class="card-stat">AQI 42 优</div>
+            </a>
+            <a class="module-card" onclick="navigateTo('healthcare.html'); return false;">
+              <div class="card-icon">🏥</div>
+              <div class="card-name">医疗健康</div>
+              <div class="card-stat">86.2% 床位</div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: Data Throughput -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📊</span> 数据吞吐量</div>
+            <div class="panel-extra">TB/s</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-throughput" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 5: Global Distribution -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🌐</span> 全球区域分布</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-distribution" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 6: TOP10 Rankings -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🏆</span> 热门区域 TOP10</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 8.3%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-rankings" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Command Center - Charts Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(initCommandCenter, 200);
+    });
+
+    function initCommandCenter() {
+      // Animate hero numbers
+      animateValue(document.getElementById('online-count'), 0, 2847563, 2500);
+      animateValue(document.getElementById('stat-asia'), 0, 1256832, 2200);
+      animateValue(document.getElementById('stat-europe'), 0, 892451, 2200);
+      animateValue(document.getElementById('stat-america'), 0, 698280, 2200);
+
+      // Initialize all charts
+      initTimeline();
+      initGauges();
+      initWorldMap();
+      initThroughput();
+      initDistribution();
+      initRankings();
+
+      // Periodic updates
+      setInterval(updateLiveData, 5000);
+    }
+
+    // ---- 24H Event Timeline (dual-line area chart) ----
+    function initTimeline() {
+      createChart(document.getElementById('chart-timeline'), {
+        grid: { top: 20, right: 12, bottom: 25, left: 42 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        legend: {
+          data: ['系统事件', '用户活动'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category',
+          data: DataGen.generateTimeLabels(24),
+          boundaryGap: false,
+          axisLine: axisLineStyle, axisLabel: axisLabelStyle,
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [{
+          name: '系统事件',
+          type: 'line',
+          data: DataGen.generateTimeSeries(24, 200, 800),
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#00f2fe', width: 2 },
+          areaStyle: {
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 242, 254, 0.25)' },
+                { offset: 1, color: 'rgba(0, 242, 254, 0.01)' }
+              ]
+            }
+          }
+        }, {
+          name: '用户活动',
+          type: 'line',
+          data: DataGen.generateTimeSeries(24, 100, 500),
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#7c3aed', width: 2 },
+          areaStyle: {
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(124, 58, 237, 0.2)' },
+                { offset: 1, color: 'rgba(124, 58, 237, 0.01)' }
+              ]
+            }
+          }
+        }]
+      });
+    }
+
+    // ---- System Gauges (CPU / MEM / NET) ----
+    function initGauges() {
+      const makeGauge = (name, value, color) => ({
+        series: [{
+          type: 'gauge',
+          center: ['50%', '60%'], radius: '90%',
+          startAngle: 220, endAngle: -40,
+          min: 0, max: 100,
+          pointer: { show: false },
+          progress: {
+            show: true, width: 12, roundCap: true,
+            itemStyle: { color }
+          },
+          axisLine: { lineStyle: { width: 12, color: [[1, 'rgba(0,242,254,0.06)']] } },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          detail: {
+            valueAnimation: true,
+            formatter: '{value}%',
+            fontSize: 20, fontFamily: 'Rajdhani', fontWeight: 700,
+            color: color, offsetCenter: [0, '15%']
+          },
+          title: {
+            fontSize: 11, color: 'rgba(224,230,255,0.45)',
+            offsetCenter: [0, '60%']
+          },
+          data: [{ value, name }]
+        }]
+      });
+
+      createChart(document.getElementById('gauge-cpu'), makeGauge('CPU', 72, '#00f2fe'));
+      createChart(document.getElementById('gauge-mem'), makeGauge('MEM', 58, '#4facfe'));
+      createChart(document.getElementById('gauge-net'), makeGauge('NET', 85, '#7c3aed'));
+    }
+
+    // ---- World Map with Flight Lines ----
+    function initWorldMap() {
+      fetch('js/world.json')
+        .then(r => r.json())
+        .then(worldJson => {
+          echarts.registerMap('world', worldJson);
+          renderWorldMap();
+        })
+        .catch(() => renderFallbackMap());
+    }
+
+    function renderWorldMap() {
+      const cities = [
+        { name: '北京', value: [116.46, 39.92, 150] },
+        { name: '上海', value: [121.48, 31.22, 120] },
+        { name: '广州', value: [113.23, 23.16, 100] },
+        { name: '深圳', value: [114.07, 22.62, 90] },
+        { name: '东京', value: [139.69, 35.69, 85] },
+        { name: '新加坡', value: [103.82, 1.35, 75] },
+        { name: '纽约', value: [-74.00, 40.71, 130] },
+        { name: '伦敦', value: [-0.12, 51.51, 110] },
+        { name: '巴黎', value: [2.35, 48.86, 80] },
+        { name: '悉尼', value: [151.21, -33.87, 70] },
+        { name: '莫斯科', value: [37.62, 55.75, 65] },
+        { name: '迪拜', value: [55.27, 25.20, 85] },
+        { name: '首尔', value: [126.98, 37.57, 95] },
+        { name: '孟买', value: [72.88, 19.08, 70] },
+        { name: '旧金山', value: [-122.42, 37.77, 100] },
+        { name: '多伦多', value: [-79.38, 43.65, 60] },
+        { name: '法兰克福', value: [8.68, 50.11, 90] },
+        { name: '香港', value: [114.17, 22.32, 95] }
+      ];
+
+      // Flight lines from Beijing (hub)
+      const hubCoord = [116.46, 39.92];
+      const flightLines = cities.filter(c => c.name !== '北京').map(c => ({
+        coords: [hubCoord, c.value.slice(0, 2)]
+      }));
+
+      // Cross-connections
+      const crossLines = [
+        { coords: [[-74.00, 40.71], [-0.12, 51.51]] },
+        { coords: [[139.69, 35.69], [121.48, 31.22]] },
+        { coords: [[-122.42, 37.77], [139.69, 35.69]] },
+        { coords: [[55.27, 25.20], [72.88, 19.08]] },
+        { coords: [[-0.12, 51.51], [8.68, 50.11]] },
+        { coords: [[103.82, 1.35], [114.17, 22.32]] },
+        { coords: [[151.21, -33.87], [103.82, 1.35]] },
+        { coords: [[-79.38, 43.65], [-74.00, 40.71]] }
+      ];
+
+      createChart(document.getElementById('chart-world-map'), {
+        backgroundColor: 'transparent',
+        geo: {
+          map: 'world', roam: false, zoom: 1.25,
+          center: [20, 18], silent: false,
+          itemStyle: {
+            areaColor: '#0d1b3e',
+            borderColor: '#1a3a6a',
+            borderWidth: 0.6,
+            shadowColor: 'rgba(0, 242, 254, 0.05)',
+            shadowBlur: 8
+          },
+          emphasis: {
+            itemStyle: {
+              areaColor: '#152a5a',
+              borderColor: '#00f2fe',
+              borderWidth: 1
+            },
+            label: { show: false }
+          }
+        },
+        series: [
+          // Pulsing city dots
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            data: cities.map(c => ({ name: c.name, value: c.value })),
+            symbolSize: function (val) { return Math.max(5, val[2] / 16); },
+            showEffectOn: 'render',
+            rippleEffect: { brushType: 'stroke', scale: 4, period: 4 },
+            itemStyle: {
+              color: '#00f2fe',
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 242, 254, 0.5)'
+            },
+            label: {
+              show: true, formatter: '{b}', position: 'right',
+              fontSize: 10, color: 'rgba(224, 230, 255, 0.55)', distance: 5
+            },
+            zlevel: 2
+          },
+          // Main hub flight lines
+          {
+            type: 'lines',
+            coordinateSystem: 'geo',
+            data: flightLines,
+            lineStyle: {
+              color: '#4facfe', width: 1, opacity: 0.35, curveness: 0.3
+            },
+            effect: {
+              show: true, period: 5, trailLength: 0.6,
+              color: '#00f2fe', symbolSize: 3
+            },
+            zlevel: 1
+          },
+          // Cross-region connections (purple)
+          {
+            type: 'lines',
+            coordinateSystem: 'geo',
+            data: crossLines,
+            lineStyle: {
+              color: '#7c3aed', width: 0.8, opacity: 0.25, curveness: 0.2
+            },
+            effect: {
+              show: true, period: 7, trailLength: 0.4,
+              color: '#7c3aed', symbolSize: 2
+            },
+            zlevel: 1
+          }
+        ]
+      });
+    }
+
+    function renderFallbackMap() {
+      // Fallback: show a beautiful scatter chart if map fails
+      const el = document.getElementById('chart-world-map');
+      el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:14px;">地图数据加载中...</div>';
+    }
+
+    // ---- Data Throughput (bar chart) ----
+    function initThroughput() {
+      const hours = DataGen.generateTimeLabels(12);
+      createChart(document.getElementById('chart-throughput'), {
+        grid: { top: 15, right: 12, bottom: 25, left: 42 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        xAxis: {
+          type: 'category', data: hours,
+          axisLine: axisLineStyle, axisLabel: axisLabelStyle,
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value', splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [{
+          type: 'bar',
+          data: DataGen.randomArray(12, 300, 900),
+          barWidth: '50%',
+          itemStyle: {
+            borderRadius: [3, 3, 0, 0],
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: '#00f2fe' },
+                { offset: 1, color: 'rgba(0, 242, 254, 0.1)' }
+              ]
+            }
+          },
+          emphasis: {
+            itemStyle: {
+              color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: '#4facfe' },
+                  { offset: 1, color: 'rgba(79, 172, 254, 0.15)' }
+                ]
+              }
+            }
+          }
+        }]
+      });
+    }
+
+    // ---- Global Distribution (donut chart) ----
+    function initDistribution() {
+      createChart(document.getElementById('chart-distribution'), {
+        tooltip: { ...tooltipConfig, trigger: 'item' },
+        series: [{
+          type: 'pie',
+          radius: ['42%', '68%'],
+          center: ['50%', '50%'],
+          avoidLabelOverlap: true,
+          itemStyle: {
+            borderColor: 'rgba(5, 10, 26, 0.8)',
+            borderWidth: 2,
+            borderRadius: 4
+          },
+          label: {
+            show: true,
+            color: 'rgba(224, 230, 255, 0.6)',
+            fontSize: 11,
+            formatter: '{b}\n{d}%',
+            lineHeight: 16
+          },
+          labelLine: {
+            lineStyle: { color: 'rgba(0,242,254,0.2)' }
+          },
+          emphasis: {
+            label: { fontSize: 13, fontWeight: 'bold', color: '#e0e6ff' },
+            itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,242,254,0.3)' }
+          },
+          data: [
+            { value: 35, name: '亚太', itemStyle: { color: '#00f2fe' } },
+            { value: 25, name: '欧洲', itemStyle: { color: '#4facfe' } },
+            { value: 20, name: '北美', itemStyle: { color: '#7c3aed' } },
+            { value: 10, name: '中东', itemStyle: { color: '#00e676' } },
+            { value: 5, name: '南美', itemStyle: { color: '#ff9100' } },
+            { value: 5, name: '非洲', itemStyle: { color: '#ff4081' } }
+          ],
+          animationType: 'scale',
+          animationEasing: 'elasticOut'
+        }]
+      });
+    }
+
+    // ---- TOP10 Rankings (horizontal bar) ----
+    function initRankings() {
+      const areas = ['重庆', '西安', '武汉', '南京', '成都', '杭州', '广州', '深圳', '上海', '北京'];
+      const values = [3654, 3987, 4321, 4876, 5432, 5987, 6543, 7654, 8732, 9856];
+      const colors = ['#7c3aed', '#7c3aed', '#7c3aed', '#4facfe', '#4facfe', '#4facfe', '#4facfe', '#00f2fe', '#00f2fe', '#00f2fe'];
+
+      createChart(document.getElementById('chart-rankings'), {
+        grid: { top: 8, right: 55, bottom: 8, left: 55 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        xAxis: { type: 'value', show: false },
+        yAxis: {
+          type: 'category', data: areas,
+          axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: 'rgba(224,230,255,0.65)', fontSize: 11 }
+        },
+        series: [{
+          type: 'bar',
+          data: values.map((v, i) => ({
+            value: v,
+            itemStyle: {
+              borderRadius: [0, 3, 3, 0],
+              color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                colorStops: [
+                  { offset: 0, color: 'rgba(0, 242, 254, 0.08)' },
+                  { offset: 1, color: colors[i] }
+                ]
+              }
+            }
+          })),
+          barWidth: '55%',
+          label: {
+            show: true, position: 'right',
+            color: 'rgba(224,230,255,0.5)',
+            fontSize: 11, fontFamily: 'Rajdhani',
+            formatter: '{c}'
+          }
+        }],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ---- Live Data Updates ----
+    function updateLiveData() {
+      const countEl = document.getElementById('online-count');
+      const current = parseInt((countEl.textContent || '0').replace(/,/g, '')) || 2847563;
+      const next = current + DataGen.random(-5000, 8000);
+      animateValue(countEl, current, next, 1500);
+
+      // Update map stats
+      document.getElementById('ms-latency').textContent = DataGen.random(15, 45) + 'ms';
+      document.getElementById('ms-alerts').textContent = DataGen.random(0, 8);
+    }
+  </script>
+</body>
+</html>

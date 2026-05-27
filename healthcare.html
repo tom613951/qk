@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataVision - 医疗健康大数据中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* ---- Healthcare Page Specific Styles ---- */
+
+    /* Gauge row for bed utilization */
+    .bed-gauge-row {
+      display: flex;
+      gap: 4px;
+      height: calc(100% - 44px);
+    }
+    .bed-gauge-row > div {
+      flex: 1;
+      position: relative;
+    }
+    .bed-total-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 4px 0 0;
+      border-top: 1px solid rgba(0, 242, 254, 0.06);
+      height: 44px;
+    }
+    .bed-total-bar .bt-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+    .bed-total-bar .bt-value {
+      font-family: var(--font-number);
+      font-size: 22px;
+      font-weight: 700;
+      color: #4facfe;
+      letter-spacing: 2px;
+      text-shadow: 0 0 12px rgba(79, 172, 254, 0.4);
+    }
+    .bed-total-bar .bt-unit {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* Emergency stats grid */
+    .emergency-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      height: 100%;
+      align-content: center;
+    }
+    .emergency-card {
+      background: linear-gradient(180deg, rgba(0, 242, 254, 0.06) 0%, rgba(10, 14, 39, 0.5) 100%);
+      border: 1px solid rgba(0, 242, 254, 0.1);
+      border-radius: 6px;
+      padding: 14px 12px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s ease;
+    }
+    .emergency-card:hover {
+      border-color: rgba(0, 242, 254, 0.25);
+    }
+    .emergency-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .emergency-card:nth-child(1)::before { background: linear-gradient(90deg, transparent, #ff5252, transparent); }
+    .emergency-card:nth-child(2)::before { background: linear-gradient(90deg, transparent, #ff9100, transparent); }
+    .emergency-card:nth-child(3)::before { background: linear-gradient(90deg, transparent, #4facfe, transparent); }
+    .emergency-card:nth-child(4)::before { background: linear-gradient(90deg, transparent, #00e676, transparent); }
+    .emergency-card .ec-icon {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+    .emergency-card .ec-value {
+      font-family: var(--font-number);
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: 2px;
+    }
+    .emergency-card:nth-child(1) .ec-value { color: #ff5252; text-shadow: 0 0 15px rgba(255, 82, 82, 0.4); }
+    .emergency-card:nth-child(2) .ec-value { color: #ff9100; text-shadow: 0 0 15px rgba(255, 145, 0, 0.4); }
+    .emergency-card:nth-child(3) .ec-value { color: #4facfe; text-shadow: 0 0 15px rgba(79, 172, 254, 0.4); }
+    .emergency-card:nth-child(4) .ec-value { color: #00e676; text-shadow: 0 0 15px rgba(0, 230, 118, 0.4); }
+    .emergency-card .ec-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+    .emergency-card .ec-trend {
+      font-family: var(--font-number);
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Equipment status matrix */
+    .equipment-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      height: 100%;
+      align-content: start;
+      padding-top: 2px;
+    }
+    .equip-item {
+      background: rgba(0, 242, 254, 0.03);
+      border: 1px solid rgba(0, 242, 254, 0.08);
+      border-radius: 4px;
+      padding: 6px 4px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all 0.3s ease;
+      cursor: default;
+    }
+    .equip-item:hover {
+      border-color: rgba(0, 242, 254, 0.2);
+      background: rgba(0, 242, 254, 0.06);
+    }
+    .equip-item .eq-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .equip-item .eq-dot.running {
+      background: #00e676;
+      box-shadow: 0 0 8px rgba(0, 230, 118, 0.5);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .equip-item .eq-dot.maintenance {
+      background: #ffd740;
+      box-shadow: 0 0 8px rgba(255, 215, 64, 0.5);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .equip-item .eq-dot.fault {
+      background: #ff5252;
+      box-shadow: 0 0 8px rgba(255, 82, 82, 0.5);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .equip-item .eq-dot.standby {
+      background: rgba(224, 230, 255, 0.25);
+    }
+    .equip-item .eq-name {
+      font-size: 10px;
+      color: var(--text-secondary);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+    .equip-item .eq-id {
+      font-family: var(--font-number);
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    .equip-legend {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      padding: 4px 0;
+      border-top: 1px solid rgba(0, 242, 254, 0.06);
+    }
+    .equip-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .equip-legend-item .lg-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* Center map panel */
+    .center-map-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(79, 172, 254, 0.03) 0%, rgba(10, 14, 39, 0.6) 100%);
+      border: 1px solid var(--cyan-15);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-map-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, #4facfe, transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+    .map-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+    }
+    .map-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: #4facfe;
+      text-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+    }
+    .map-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .map-stats-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+    }
+    .map-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.75);
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(79, 172, 254, 0.12);
+      backdrop-filter: blur(4px);
+    }
+    .map-stat .ms-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .map-stat .ms-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .map-stat .ms-value {
+      font-family: var(--font-number);
+      font-size: 16px;
+      font-weight: 700;
+      color: #4facfe;
+    }
+
+    /* Heartbeat line decoration at top of dashboard */
+    .heartbeat-bar {
+      height: 28px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.3), rgba(79, 172, 254, 0.03), rgba(0,0,0,0.3));
+      border-bottom: 1px solid rgba(79, 172, 254, 0.05);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .heartbeat-bar .hb-label {
+      background: linear-gradient(135deg, #4facfe, #00bfa5);
+      color: var(--bg-darkest);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 12px;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .heartbeat-bar .marquee-wrapper {
+      flex: 1;
+      overflow: hidden;
+    }
+    .heartbeat-bar .marquee-content {
+      display: flex;
+      animation: marquee 50s linear infinite;
+      white-space: nowrap;
+      gap: 80px;
+      padding-left: 20px;
+    }
+    .heartbeat-bar .marquee-item {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .heartbeat-bar .marquee-item .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #00bfa5;
+      flex-shrink: 0;
+    }
+    .heartbeat-bar .marquee-item .dot.warn { background: var(--orange); }
+    .heartbeat-bar .marquee-item .dot.err { background: var(--red); }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Heartbeat Alert Bar -->
+    <div class="heartbeat-bar">
+      <div class="hb-label">🏥 LIVE</div>
+      <div class="marquee-wrapper">
+        <div class="marquee-content">
+          <span class="marquee-item"><span class="dot"></span>北京协和医院 ICU床位使用率 94.2% 运行正常</span>
+          <span class="marquee-item"><span class="dot warn"></span>上海瑞金医院 急诊科等候人数激增 已启动分流预案</span>
+          <span class="marquee-item"><span class="dot"></span>广州南方医院 今日门诊量 12,847 人次 同比+8.3%</span>
+          <span class="marquee-item"><span class="dot err"></span>武汉同济医院 CT设备#3 故障报警 维修人员已派出</span>
+          <span class="marquee-item"><span class="dot"></span>成都华西医院 手术室使用率 87.6% 手术排期正常</span>
+          <span class="marquee-item"><span class="dot"></span>深圳人民医院 药品库存充足 抗生素储备达标</span>
+          <span class="marquee-item"><span class="dot warn"></span>杭州邵逸夫医院 发热门诊就诊量上升 15% 关注中</span>
+          <!-- duplicate for loop -->
+          <span class="marquee-item"><span class="dot"></span>北京协和医院 ICU床位使用率 94.2% 运行正常</span>
+          <span class="marquee-item"><span class="dot warn"></span>上海瑞金医院 急诊科等候人数激增 已启动分流预案</span>
+          <span class="marquee-item"><span class="dot"></span>广州南方医院 今日门诊量 12,847 人次 同比+8.3%</span>
+          <span class="marquee-item"><span class="dot err"></span>武汉同济医院 CT设备#3 故障报警 维修人员已派出</span>
+          <span class="marquee-item"><span class="dot"></span>成都华西医院 手术室使用率 87.6% 手术排期正常</span>
+          <span class="marquee-item"><span class="dot"></span>深圳人民医院 药品库存充足 抗生素储备达标</span>
+          <span class="marquee-item"><span class="dot warn"></span>杭州邵逸夫医院 发热门诊就诊量上升 15% 关注中</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">GLOBAL COMMAND CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item active" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: 全国床位使用率 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🛏️</span> 全国床位使用率</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 实时</div>
+          </div>
+          <div class="panel-body">
+            <div class="bed-gauge-row">
+              <div id="gauge-icu" class="chart-container"></div>
+              <div id="gauge-normal" class="chart-container"></div>
+              <div id="gauge-emergency" class="chart-container"></div>
+            </div>
+            <div class="bed-total-bar">
+              <span class="bt-label">全国床位总数</span>
+              <span class="bt-value" id="bed-total-num">8,912,000</span>
+              <span class="bt-unit">张</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: 疾病分布 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🦠</span> 疾病分布TOP10</div>
+            <div class="panel-extra"><span class="data-tag neutral">本月</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-disease" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: 药品库存监控 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">💊</span> 药品库存监控</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 充足</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-drugs" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-map-panel">
+          <div class="map-title-overlay">
+            <h2>HEALTHCARE ANALYTICS</h2>
+            <p>全国医疗资源分布</p>
+          </div>
+          <div id="chart-china-map" class="chart-container"></div>
+          <div class="map-stats-overlay">
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#4facfe;box-shadow:0 0 8px rgba(79,172,254,0.5)"></div>
+              <div>
+                <div class="ms-label">医院总数</div>
+                <div class="ms-value" id="ms-hospitals">35,847</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#00bfa5;box-shadow:0 0 8px rgba(0,191,165,0.5)"></div>
+              <div>
+                <div class="ms-label">床位总数</div>
+                <div class="ms-value" id="ms-beds">8,912,000</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#00f2fe;box-shadow:0 0 8px rgba(0,242,254,0.5)"></div>
+              <div>
+                <div class="ms-label">今日门诊</div>
+                <div class="ms-value" id="ms-outpatient">12,847,000</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#ff5252;box-shadow:0 0 8px rgba(255,82,82,0.5)"></div>
+              <div>
+                <div class="ms-label">急救响应</div>
+                <div class="ms-value" id="ms-response">4.2min</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: 急诊实时统计 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🚑</span> 急诊实时统计</div>
+            <div class="panel-extra"><span class="status-dot danger"></span> 紧急</div>
+          </div>
+          <div class="panel-body">
+            <div class="emergency-grid">
+              <div class="emergency-card">
+                <div class="ec-icon">🏥</div>
+                <div class="ec-value" id="er-today">0</div>
+                <div class="ec-label">今日急诊</div>
+                <div class="ec-trend" style="color:#ff5252;">↑ 12.3%</div>
+              </div>
+              <div class="emergency-card">
+                <div class="ec-icon">⏳</div>
+                <div class="ec-value" id="er-waiting">0</div>
+                <div class="ec-label">待诊人数</div>
+                <div class="ec-trend" style="color:#ff9100;">排队中</div>
+              </div>
+              <div class="emergency-card">
+                <div class="ec-icon">💉</div>
+                <div class="ec-value" id="er-treating">0</div>
+                <div class="ec-label">正在治疗</div>
+                <div class="ec-trend" style="color:#4facfe;">进行中</div>
+              </div>
+              <div class="emergency-card">
+                <div class="ec-icon">✅</div>
+                <div class="ec-value" id="er-discharged">0</div>
+                <div class="ec-label">已出院</div>
+                <div class="ec-trend" style="color:#00e676;">↑ 5.7%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 5: 传染病趋势 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📉</span> 传染病趋势</div>
+            <div class="panel-extra"><span class="data-tag down">↓ 3.2%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-infectious" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 6: 医疗设备运行 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🔬</span> 医疗设备运行</div>
+            <div class="panel-extra">
+              <span style="font-family:var(--font-number);font-weight:600;color:#00e676;font-size:12px;">18</span>
+              <span style="font-size:11px;color:var(--text-dim)">/20 在线</span>
+            </div>
+          </div>
+          <div class="panel-body" style="display:flex;flex-direction:column;">
+            <div class="equipment-grid" style="flex:1;" id="equipment-grid">
+              <!-- filled by JS -->
+            </div>
+            <div class="equip-legend">
+              <div class="equip-legend-item"><div class="lg-dot" style="background:#00e676;"></div>运行中</div>
+              <div class="equip-legend-item"><div class="lg-dot" style="background:#ffd740;"></div>维护中</div>
+              <div class="equip-legend-item"><div class="lg-dot" style="background:#ff5252;"></div>故障</div>
+              <div class="equip-legend-item"><div class="lg-dot" style="background:rgba(224,230,255,0.25);"></div>待机</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Healthcare Dashboard - Charts & Data Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(initPage, 200);
+    });
+
+    function initPage() {
+      // Animate emergency numbers
+      animateValue(document.getElementById('er-today'), 0, 28473, 2200);
+      animateValue(document.getElementById('er-waiting'), 0, 1247, 2000);
+      animateValue(document.getElementById('er-treating'), 0, 3891, 2000);
+      animateValue(document.getElementById('er-discharged'), 0, 23335, 2200);
+
+      // Init all charts
+      initBedGauges();
+      initDiseaseChart();
+      initDrugChart();
+      initChinaMap();
+      initInfectiousChart();
+      initEquipmentGrid();
+
+      // Periodic updates
+      setInterval(updateHealthcareData, 5000);
+    }
+
+    // ---- Panel 1: Bed Utilization Gauges (circular liquidfill-like) ----
+    function initBedGauges() {
+      const makeGauge = (title, value, colors) => ({
+        series: [{
+          type: 'gauge',
+          center: ['50%', '50%'],
+          radius: '80%',
+          startAngle: 90,
+          endAngle: -270,
+          min: 0,
+          max: 100,
+          pointer: { show: false },
+          progress: {
+            show: true,
+            overlap: false,
+            roundCap: true,
+            width: 10,
+            itemStyle: {
+              color: {
+                type: 'linear',
+                x: 0, y: 0, x2: 1, y2: 1,
+                colorStops: [
+                  { offset: 0, color: colors[0] },
+                  { offset: 1, color: colors[1] }
+                ]
+              }
+            }
+          },
+          axisLine: {
+            lineStyle: {
+              width: 10,
+              color: [[1, 'rgba(0, 242, 254, 0.06)']]
+            }
+          },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          detail: {
+            valueAnimation: true,
+            formatter: '{value}%',
+            fontSize: 20,
+            fontFamily: 'Rajdhani',
+            fontWeight: 700,
+            color: colors[0],
+            offsetCenter: [0, '-5%']
+          },
+          title: {
+            fontSize: 11,
+            color: 'rgba(224,230,255,0.55)',
+            offsetCenter: [0, '50%'],
+            fontFamily: '"Noto Sans SC", sans-serif'
+          },
+          data: [{ value: value, name: title }],
+          animationDuration: 2000,
+          animationEasing: 'cubicOut'
+        }]
+      });
+
+      createChart(document.getElementById('gauge-icu'),
+        makeGauge('ICU床位', 92.3, ['#ff5252', '#ff9100']));
+      createChart(document.getElementById('gauge-normal'),
+        makeGauge('普通床位', 78.5, ['#4facfe', '#00bfa5']));
+      createChart(document.getElementById('gauge-emergency'),
+        makeGauge('急诊床位', 85.1, ['#00bfa5', '#00f2fe']));
+    }
+
+    // ---- Panel 2: Disease Distribution (horizontal bar) ----
+    function initDiseaseChart() {
+      const diseases = ['口腔', '眼科', '泌尿系统', '皮肤科', '骨科', '内分泌', '神经系统', '消化系统', '循环系统', '呼吸系统'];
+      const values = [2843, 3521, 4102, 5234, 6187, 7890, 9456, 12340, 15678, 18932];
+
+      createChart(document.getElementById('chart-disease'), {
+        grid: { top: 8, right: 60, bottom: 8, left: 72 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        xAxis: { type: 'value', show: false },
+        yAxis: {
+          type: 'category',
+          data: diseases,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { color: 'rgba(224,230,255,0.6)', fontSize: 11 }
+        },
+        series: [{
+          type: 'bar',
+          data: values.map((v, i) => ({
+            value: v,
+            itemStyle: {
+              borderRadius: [0, 3, 3, 0],
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                colorStops: [
+                  { offset: 0, color: 'rgba(79, 172, 254, 0.15)' },
+                  { offset: 1, color: i < 3 ? '#00bfa5' : i < 7 ? '#4facfe' : '#00f2fe' }
+                ]
+              }
+            }
+          })),
+          barWidth: '55%',
+          label: {
+            show: true, position: 'right',
+            color: 'rgba(224,230,255,0.5)',
+            fontSize: 11, fontFamily: 'Rajdhani',
+            formatter: function (p) {
+              return (p.value / 10000 >= 1) ? (p.value / 10000).toFixed(1) + '万' : p.value;
+            }
+          }
+        }],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ---- Panel 3: Drug Inventory (stacked bar) ----
+    function initDrugChart() {
+      const categories = ['抗生素', '心血管', '神经类', '消化类', '中成药'];
+
+      createChart(document.getElementById('chart-drugs'), {
+        grid: { top: 30, right: 12, bottom: 25, left: 55 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        legend: {
+          data: ['库存量', '消耗量'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, fontSize: 11 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: { ...axisLabelStyle, formatter: function(v) { return v >= 1000 ? (v/1000)+'k' : v; } }
+        },
+        series: [
+          {
+            name: '库存量',
+            type: 'bar',
+            stack: 'total',
+            data: [8500, 6200, 4800, 7100, 5600],
+            barWidth: '45%',
+            itemStyle: {
+              borderRadius: [0, 0, 0, 0],
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: '#4facfe' },
+                  { offset: 1, color: 'rgba(79, 172, 254, 0.3)' }
+                ]
+              }
+            }
+          },
+          {
+            name: '消耗量',
+            type: 'bar',
+            stack: 'total',
+            data: [3200, 2800, 1900, 2400, 2100],
+            itemStyle: {
+              borderRadius: [3, 3, 0, 0],
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: '#00bfa5' },
+                  { offset: 1, color: 'rgba(0, 191, 165, 0.3)' }
+                ]
+              }
+            }
+          }
+        ],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ---- Center: China Healthcare Map ----
+    function initChinaMap() {
+      fetch('https://geojson.cn/api/data/china.json')
+        .then(r => r.json())
+        .then(chinaJson => {
+          echarts.registerMap('china', chinaJson);
+          renderChinaMap();
+        })
+        .catch(() => {
+          // fallback CDN
+          fetch('js/china.json')
+            .then(r => r.json())
+            .then(chinaJson => {
+              echarts.registerMap('china', chinaJson);
+              renderChinaMap();
+            })
+            .catch(() => renderMapFallback());
+        });
+    }
+
+    function renderChinaMap() {
+      // Province data: beds per 10k people
+      const provinceData = [
+        { name: '北京', value: 68.2 }, { name: '天津', value: 55.1 },
+        { name: '河北', value: 48.3 }, { name: '山西', value: 52.7 },
+        { name: '内蒙古', value: 56.4 }, { name: '辽宁', value: 61.8 },
+        { name: '吉林', value: 58.9 }, { name: '黑龙江', value: 57.2 },
+        { name: '上海', value: 65.3 }, { name: '江苏', value: 59.1 },
+        { name: '浙江', value: 62.4 }, { name: '安徽', value: 50.8 },
+        { name: '福建', value: 51.6 }, { name: '江西', value: 49.2 },
+        { name: '山东', value: 60.5 }, { name: '河南', value: 55.9 },
+        { name: '湖北', value: 63.7 }, { name: '湖南', value: 56.8 },
+        { name: '广东', value: 58.4 }, { name: '广西', value: 47.5 },
+        { name: '海南', value: 44.1 }, { name: '重庆', value: 57.6 },
+        { name: '四川', value: 61.2 }, { name: '贵州', value: 48.9 },
+        { name: '云南', value: 46.3 }, { name: '西藏', value: 38.2 },
+        { name: '陕西', value: 55.4 }, { name: '甘肃', value: 49.7 },
+        { name: '青海', value: 52.1 }, { name: '宁夏', value: 50.3 },
+        { name: '新疆', value: 53.8 }, { name: '台湾', value: 71.5 },
+        { name: '香港', value: 72.3 }, { name: '澳门', value: 69.8 }
+      ];
+
+      // Major hospitals as scatter
+      const hospitals = [
+        { name: '北京协和医院', value: [116.42, 39.91, 4500] },
+        { name: '上海瑞金医院', value: [121.47, 31.22, 3800] },
+        { name: '广州南方医院', value: [113.35, 23.18, 3200] },
+        { name: '武汉同济医院', value: [114.35, 30.60, 4200] },
+        { name: '成都华西医院', value: [104.05, 30.66, 4800] },
+        { name: '杭州邵逸夫医院', value: [120.17, 30.28, 2600] },
+        { name: '南京鼓楼医院', value: [118.80, 32.07, 2800] },
+        { name: '西安西京医院', value: [108.97, 34.28, 3000] },
+        { name: '长沙湘雅医院', value: [112.95, 28.23, 3500] },
+        { name: '重庆西南医院', value: [106.55, 29.57, 2900] },
+        { name: '沈阳盛京医院', value: [123.43, 41.81, 3400] },
+        { name: '哈尔滨医大一院', value: [126.65, 45.75, 2700] },
+        { name: '郑州大学一附院', value: [113.63, 34.75, 5200] },
+        { name: '济南齐鲁医院', value: [117.02, 36.68, 3100] },
+        { name: '天津总医院', value: [117.19, 39.10, 2500] },
+        { name: '昆明医科大附院', value: [102.72, 25.04, 2400] }
+      ];
+
+      // Emergency hotspots (effectScatter red pulsing)
+      const emergencyHotspots = [
+        { name: '北京急救中心', value: [116.38, 39.95, 85] },
+        { name: '上海急救中心', value: [121.50, 31.25, 78] },
+        { name: '广州急救中心', value: [113.28, 23.12, 72] },
+        { name: '武汉急救中心', value: [114.30, 30.55, 68] },
+        { name: '深圳急救中心', value: [114.06, 22.55, 65] },
+        { name: '成都急救中心', value: [104.08, 30.63, 70] }
+      ];
+
+      createChart(document.getElementById('chart-china-map'), {
+        backgroundColor: 'transparent',
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: function(params) {
+            if (params.seriesType === 'map') {
+              return params.name + '<br/>每万人床位数: <span style="color:#4facfe;font-weight:700">' + (params.value || '暂无') + '</span>';
+            } else if (params.seriesType === 'scatter') {
+              return params.name + '<br/>床位数: <span style="color:#4facfe;font-weight:700">' + params.value[2] + '</span>';
+            } else if (params.seriesType === 'effectScatter') {
+              return params.name + '<br/>今日急救出动: <span style="color:#ff5252;font-weight:700">' + params.value[2] + '</span> 次';
+            }
+            return params.name;
+          }
+        },
+        visualMap: {
+          min: 35,
+          max: 75,
+          left: 20,
+          bottom: 45,
+          text: ['高', '低'],
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          inRange: {
+            color: ['#0d2e5e', '#0f4080', '#1565a0', '#1e88c8', '#2ba5e0', '#4facfe', '#6fcbff']
+          },
+          calculable: true,
+          orient: 'vertical',
+          itemWidth: 10,
+          itemHeight: 80,
+          handleStyle: { borderColor: '#4facfe' }
+        },
+        geo: {
+          map: 'china',
+          roam: false,
+          zoom: 1.18,
+          center: [104.5, 36],
+          silent: true,
+          itemStyle: {
+            areaColor: 'transparent',
+            borderColor: 'rgba(79, 172, 254, 0.15)',
+            borderWidth: 0.5
+          }
+        },
+        series: [
+          // Map choropleth
+          {
+            name: '医疗资源密度',
+            type: 'map',
+            map: 'china',
+            roam: false,
+            zoom: 1.18,
+            center: [104.5, 36],
+            itemStyle: {
+              areaColor: '#0d1f4a',
+              borderColor: 'rgba(79, 172, 254, 0.25)',
+              borderWidth: 0.8,
+              shadowColor: 'rgba(79, 172, 254, 0.08)',
+              shadowBlur: 6
+            },
+            emphasis: {
+              itemStyle: {
+                areaColor: '#1a4080',
+                borderColor: '#4facfe',
+                borderWidth: 1.5
+              },
+              label: {
+                show: true,
+                color: '#e0e6ff',
+                fontSize: 12
+              }
+            },
+            label: { show: false },
+            data: provinceData,
+            animationDuration: 1500
+          },
+          // Hospital scatter points
+          {
+            name: '大型医院',
+            type: 'scatter',
+            coordinateSystem: 'geo',
+            data: hospitals.map(h => ({
+              name: h.name,
+              value: h.value
+            })),
+            symbolSize: function(val) {
+              return Math.max(6, val[2] / 400);
+            },
+            itemStyle: {
+              color: '#4facfe',
+              borderColor: 'rgba(79, 172, 254, 0.4)',
+              borderWidth: 1,
+              shadowBlur: 10,
+              shadowColor: 'rgba(79, 172, 254, 0.3)'
+            },
+            label: {
+              show: false
+            },
+            zlevel: 2
+          },
+          // Emergency hotspots (red pulsing)
+          {
+            name: '急救热点',
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            data: emergencyHotspots.map(e => ({
+              name: e.name,
+              value: e.value
+            })),
+            symbolSize: function(val) {
+              return Math.max(8, val[2] / 6);
+            },
+            showEffectOn: 'render',
+            rippleEffect: {
+              brushType: 'stroke',
+              scale: 4,
+              period: 3,
+              color: 'rgba(255, 82, 82, 0.6)'
+            },
+            itemStyle: {
+              color: '#ff5252',
+              shadowBlur: 12,
+              shadowColor: 'rgba(255, 82, 82, 0.5)'
+            },
+            label: {
+              show: true,
+              formatter: '{b}',
+              position: 'right',
+              fontSize: 9,
+              color: 'rgba(255, 82, 82, 0.7)',
+              distance: 5
+            },
+            zlevel: 3
+          }
+        ]
+      });
+    }
+
+    function renderMapFallback() {
+      const el = document.getElementById('chart-china-map');
+      el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:14px;">地图数据加载中...</div>';
+    }
+
+    // ---- Panel 5: Infectious Disease Trends (multi-line area) ----
+    function initInfectiousChart() {
+      const days = DataGen.generateDayLabels(30);
+
+      createChart(document.getElementById('chart-infectious'), {
+        grid: { top: 30, right: 12, bottom: 25, left: 42 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        legend: {
+          data: ['流感', '手足口', '水痘', '其他'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category',
+          data: days,
+          boundaryGap: false,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, interval: 5 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [
+          {
+            name: '流感',
+            type: 'line',
+            data: DataGen.generateTimeSeries(30, 200, 600),
+            smooth: true, symbol: 'none',
+            lineStyle: { color: '#4facfe', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(79, 172, 254, 0.3)' },
+                  { offset: 1, color: 'rgba(79, 172, 254, 0.01)' }
+                ]
+              }
+            }
+          },
+          {
+            name: '手足口',
+            type: 'line',
+            data: DataGen.generateTimeSeries(30, 100, 400),
+            smooth: true, symbol: 'none',
+            lineStyle: { color: '#00bfa5', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(0, 191, 165, 0.25)' },
+                  { offset: 1, color: 'rgba(0, 191, 165, 0.01)' }
+                ]
+              }
+            }
+          },
+          {
+            name: '水痘',
+            type: 'line',
+            data: DataGen.generateTimeSeries(30, 50, 250),
+            smooth: true, symbol: 'none',
+            lineStyle: { color: '#ff9100', width: 2 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(255, 145, 0, 0.2)' },
+                  { offset: 1, color: 'rgba(255, 145, 0, 0.01)' }
+                ]
+              }
+            }
+          },
+          {
+            name: '其他',
+            type: 'line',
+            data: DataGen.generateTimeSeries(30, 30, 180),
+            smooth: true, symbol: 'none',
+            lineStyle: { color: '#7c3aed', width: 1.5 },
+            areaStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: 'rgba(124, 58, 237, 0.15)' },
+                  { offset: 1, color: 'rgba(124, 58, 237, 0.01)' }
+                ]
+              }
+            }
+          }
+        ],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ---- Panel 6: Equipment Status Grid ----
+    function initEquipmentGrid() {
+      const devices = [
+        { name: 'CT-01', type: 'CT扫描', status: 'running' },
+        { name: 'CT-02', type: 'CT扫描', status: 'running' },
+        { name: 'CT-03', type: 'CT扫描', status: 'fault' },
+        { name: 'MRI-01', type: '核磁共振', status: 'running' },
+        { name: 'MRI-02', type: '核磁共振', status: 'running' },
+        { name: 'MRI-03', type: '核磁共振', status: 'maintenance' },
+        { name: 'XR-01', type: 'X射线', status: 'running' },
+        { name: 'XR-02', type: 'X射线', status: 'running' },
+        { name: 'US-01', type: 'B超', status: 'running' },
+        { name: 'US-02', type: 'B超', status: 'running' },
+        { name: 'US-03', type: 'B超', status: 'standby' },
+        { name: 'ECG-01', type: '心电图', status: 'running' },
+        { name: 'ECG-02', type: '心电图', status: 'running' },
+        { name: 'VEN-01', type: '呼吸机', status: 'running' },
+        { name: 'VEN-02', type: '呼吸机', status: 'running' },
+        { name: 'VEN-03', type: '呼吸机', status: 'running' },
+        { name: 'DIA-01', type: '透析机', status: 'running' },
+        { name: 'DIA-02', type: '透析机', status: 'standby' },
+        { name: 'MON-01', type: '监护仪', status: 'running' },
+        { name: 'MON-02', type: '监护仪', status: 'running' }
+      ];
+
+      const grid = document.getElementById('equipment-grid');
+      grid.innerHTML = devices.map(d => `
+        <div class="equip-item" title="${d.type} - ${d.name}">
+          <div class="eq-dot ${d.status}"></div>
+          <div class="eq-name">${d.type}</div>
+          <div class="eq-id">${d.name}</div>
+        </div>
+      `).join('');
+    }
+
+    // ---- Live Data Updates ----
+    function updateHealthcareData() {
+      // Update emergency stats
+      const erToday = document.getElementById('er-today');
+      const currentVal = parseInt((erToday.textContent || '0').replace(/,/g, '')) || 28473;
+      const newVal = currentVal + DataGen.random(5, 25);
+      animateValue(erToday, currentVal, newVal, 1200);
+
+      const erWaiting = document.getElementById('er-waiting');
+      const waitCur = parseInt((erWaiting.textContent || '0').replace(/,/g, '')) || 1247;
+      const waitNew = waitCur + DataGen.random(-20, 30);
+      animateValue(erWaiting, waitCur, Math.max(800, waitNew), 1200);
+
+      const erTreating = document.getElementById('er-treating');
+      const treatCur = parseInt((erTreating.textContent || '0').replace(/,/g, '')) || 3891;
+      const treatNew = treatCur + DataGen.random(-15, 20);
+      animateValue(erTreating, treatCur, Math.max(3000, treatNew), 1200);
+
+      const erDischarged = document.getElementById('er-discharged');
+      const disCur = parseInt((erDischarged.textContent || '0').replace(/,/g, '')) || 23335;
+      const disNew = disCur + DataGen.random(3, 18);
+      animateValue(erDischarged, disCur, disNew, 1200);
+
+      // Update map response time
+      const respEl = document.getElementById('ms-response');
+      if (respEl) respEl.textContent = DataGen.randomFloat(3.5, 5.5, 1) + 'min';
+
+      // Update bed gauges slightly
+      chartInstances.forEach((chart, idx) => {
+        if (idx < 3) {
+          const base = [92.3, 78.5, 85.1][idx];
+          const newGaugeVal = +(base + DataGen.randomFloat(-1.5, 1.5, 1)).toFixed(1);
+          chart.setOption({
+            series: [{ data: [{ value: Math.min(99, Math.max(60, newGaugeVal)), name: chart.getOption().series[0].data[0].name }] }]
+          });
+        }
+      });
+
+      // Randomly toggle one equipment status
+      const items = document.querySelectorAll('.equip-item .eq-dot');
+      if (items.length) {
+        const rIdx = DataGen.random(0, items.length - 1);
+        const statuses = ['running', 'running', 'running', 'running', 'maintenance', 'standby'];
+        const newStatus = statuses[DataGen.random(0, statuses.length - 1)];
+        items[rIdx].className = 'eq-dot ' + newStatus;
+      }
+    }
+  </script>
+</body>
+</html>

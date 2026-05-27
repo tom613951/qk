@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataVision - 环境监测中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* ============================================================
+       Page-specific: Environmental Monitoring Center
+       ============================================================ */
+
+    /* Green-teal glow overrides */
+    .env-glow {
+      text-shadow: 0 0 20px rgba(0, 230, 118, 0.4), 0 0 40px rgba(0, 191, 165, 0.15);
+    }
+
+    /* PM2.5 National Average hero */
+    .pm25-hero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 6px 0 2px;
+    }
+    .pm25-hero .pm25-value {
+      font-family: var(--font-number);
+      font-size: 36px;
+      font-weight: 700;
+      color: #00e676;
+      text-shadow: 0 0 20px rgba(0, 230, 118, 0.5), 0 0 40px rgba(0, 230, 118, 0.15);
+      line-height: 1;
+    }
+    .pm25-hero .pm25-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+    .pm25-hero .pm25-unit {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-left: -4px;
+    }
+    .pm25-hero .pm25-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(0, 230, 118, 0.12);
+      color: #00e676;
+      border: 1px solid rgba(0, 230, 118, 0.25);
+    }
+
+    /* Center map panel */
+    .center-map-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(0, 230, 118, 0.03) 0%, rgba(10, 14, 39, 0.6) 100%);
+      border: 1px solid var(--cyan-15);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-map-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, #00e676, transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+    .map-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+    }
+    .map-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: #00e676;
+      text-shadow: 0 0 20px rgba(0, 230, 118, 0.35);
+    }
+    .map-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .map-stats-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+    }
+    .map-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.75);
+      padding: 6px 16px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 230, 118, 0.1);
+      backdrop-filter: blur(4px);
+    }
+    .map-stat .ms-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .map-stat .ms-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .map-stat .ms-value {
+      font-family: var(--font-number);
+      font-size: 16px;
+      font-weight: 700;
+      color: #00e676;
+    }
+
+    /* Weather panel */
+    .weather-main {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 8px 0 4px;
+    }
+    .weather-icon {
+      font-size: 44px;
+      filter: drop-shadow(0 0 10px rgba(0, 230, 118, 0.3));
+      animation: float 4s ease-in-out infinite;
+    }
+    .weather-temp {
+      font-family: var(--font-number);
+      font-size: 48px;
+      font-weight: 700;
+      color: #00e676;
+      line-height: 1;
+      text-shadow: 0 0 25px rgba(0, 230, 118, 0.4);
+    }
+    .weather-temp-unit {
+      font-size: 18px;
+      color: var(--text-secondary);
+      font-weight: 400;
+      vertical-align: super;
+    }
+    .weather-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: -2px;
+    }
+    .weather-location {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-align: center;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    /* Info grid green accent */
+    .info-grid-item.env-accent .info-value {
+      color: #00e676;
+    }
+    .info-grid-item.env-accent {
+      border-color: rgba(0, 230, 118, 0.12);
+      background: rgba(0, 230, 118, 0.04);
+    }
+
+    /* Override panel scan line for green theme */
+    .dashboard .panel::before {
+      background: linear-gradient(90deg, transparent, #00bfa5, transparent);
+    }
+
+    /* Panel title bar green accent */
+    .panel .panel-title::before {
+      background: linear-gradient(135deg, #00e676, #00bfa5);
+      box-shadow: 0 0 6px rgba(0, 230, 118, 0.5);
+    }
+
+    /* Green-themed status dots */
+    .env-status {
+      color: #00e676;
+    }
+
+    /* Alert warning list */
+    .alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .alert-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      background: rgba(255, 145, 0, 0.05);
+      border-left: 2px solid var(--orange);
+    }
+    .alert-row.critical {
+      background: rgba(255, 82, 82, 0.06);
+      border-left-color: var(--red);
+    }
+    .alert-row .alert-city {
+      color: var(--text-primary);
+      font-weight: 500;
+      min-width: 48px;
+    }
+    .alert-row .alert-msg {
+      color: var(--text-secondary);
+      flex: 1;
+    }
+    .alert-row .alert-aqi {
+      font-family: var(--font-number);
+      font-weight: 600;
+      min-width: 40px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">GLOBAL COMMAND CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item active" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: PM2.5 National Distribution -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🌫️</span> PM2.5 全国分布</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 实时</div>
+          </div>
+          <div class="panel-body">
+            <div class="pm25-hero">
+              <div>
+                <div class="pm25-label">全国均值</div>
+                <div style="display:flex;align-items:baseline;gap:4px;">
+                  <div class="pm25-value" id="pm25-avg">42</div>
+                  <div class="pm25-unit">μg/m³</div>
+                </div>
+              </div>
+              <div class="pm25-badge" id="pm25-level">优</div>
+            </div>
+            <div id="chart-pm25" class="chart-container" style="height:calc(100% - 55px);"></div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Water Quality -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">💧</span> 水质监测</div>
+            <div class="panel-extra">近30天</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-water" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Carbon Emissions -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🏭</span> 碳排放趋势</div>
+            <div class="panel-extra"><span class="data-tag down">↓ 3.2%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-carbon" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-map-panel">
+          <div class="map-title-overlay">
+            <h2>ENVIRONMENTAL MONITORING</h2>
+            <p>全国环境质量实时监控</p>
+          </div>
+          <div id="chart-china-map" class="chart-container"></div>
+          <div class="map-stats-overlay">
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#00e676;box-shadow:0 0 8px rgba(0,230,118,0.5)"></div>
+              <div>
+                <div class="ms-label">监测站点</div>
+                <div class="ms-value" id="ms-stations">2,847</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#00bfa5;box-shadow:0 0 8px rgba(0,191,165,0.5)"></div>
+              <div>
+                <div class="ms-label">优良率</div>
+                <div class="ms-value" id="ms-good-rate">78.3%</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan-50)"></div>
+              <div>
+                <div class="ms-label">AQI均值</div>
+                <div class="ms-value" id="ms-aqi-avg">62</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange-50)"></div>
+              <div>
+                <div class="ms-label">预警城市</div>
+                <div class="ms-value" id="ms-warn-cities">5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: Weather Info -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🌤️</span> 天气预警</div>
+            <div class="panel-extra"><span class="badge badge-green">正常</span></div>
+          </div>
+          <div class="panel-body">
+            <div class="weather-location">📍 北京市 · 朝阳区</div>
+            <div class="weather-main">
+              <div class="weather-icon" id="weather-icon">⛅</div>
+              <div>
+                <div class="weather-temp"><span id="weather-temp-val">26</span><span class="weather-temp-unit">°C</span></div>
+                <div class="weather-desc" id="weather-desc">多云转晴</div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="info-grid">
+              <div class="info-grid-item env-accent">
+                <div class="info-value" id="weather-humidity">62<span class="number-unit">%</span></div>
+                <div class="info-label">湿度</div>
+              </div>
+              <div class="info-grid-item env-accent">
+                <div class="info-value" id="weather-wind">3.2<span class="number-unit">m/s</span></div>
+                <div class="info-label">风速</div>
+              </div>
+              <div class="info-grid-item env-accent">
+                <div class="info-value" id="weather-pressure">1013<span class="number-unit">hPa</span></div>
+                <div class="info-label">气压</div>
+              </div>
+              <div class="info-grid-item env-accent">
+                <div class="info-value" id="weather-visibility">18<span class="number-unit">km</span></div>
+                <div class="info-label">能见度</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 5: Ecology Radar -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🌱</span> 生态指标</div>
+            <div class="panel-extra">综合评估</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-ecology" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 6: Noise Heatmap -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🔊</span> 噪声污染分布</div>
+            <div class="panel-extra">dB(A)</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-noise" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Environmental Monitoring Center - Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(initPage, 200);
+    });
+
+    // Store chart instances for updates
+    let chartPM25, chartWater, chartCarbon, chartMap, chartEcology, chartNoise;
+
+    function initPage() {
+      initPM25Chart();
+      initWaterChart();
+      initCarbonChart();
+      initChinaMap();
+      initEcologyRadar();
+      initNoiseHeatmap();
+
+      // Periodic updates
+      setInterval(updateLiveData, 6000);
+    }
+
+    // ============================================================
+    // Panel 1: PM2.5 Scatter Chart
+    // ============================================================
+    function initPM25Chart() {
+      const cities = [
+        '北京','上海','广州','深圳','成都','重庆','武汉','杭州','南京','天津',
+        '西安','长沙','郑州','沈阳','哈尔滨','昆明','贵阳','拉萨','海口','乌鲁木齐'
+      ];
+      const values = [58, 42, 35, 28, 52, 65, 48, 32, 38, 72,
+                       85, 45, 92, 110, 125, 22, 18, 12, 15, 130];
+
+      function getColor(val) {
+        if (val < 35) return '#00e676';
+        if (val < 75) return '#ffd740';
+        if (val < 115) return '#ff9100';
+        if (val < 150) return '#ff5252';
+        return '#b71c1c';
+      }
+
+      const scatterData = values.map((v, i) => ({
+        value: [i, v],
+        itemStyle: { color: getColor(v) }
+      }));
+
+      chartPM25 = createChart(document.getElementById('chart-pm25'), {
+        grid: { top: 10, right: 12, bottom: 40, left: 38 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: function(p) {
+            const v = p.value[1];
+            let level = '优';
+            if (v >= 150) level = '重度污染';
+            else if (v >= 115) level = '中度污染';
+            else if (v >= 75) level = '轻度污染';
+            else if (v >= 35) level = '良';
+            return `<b>${cities[p.value[0]]}</b><br/>PM2.5: ${v} μg/m³<br/>等级: ${level}`;
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: cities,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, rotate: 45, fontSize: 9 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          name: 'μg/m³',
+          nameTextStyle: { color: 'rgba(224,230,255,0.35)', fontSize: 9 },
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [{
+          type: 'scatter',
+          data: scatterData,
+          symbolSize: function(val) { return Math.max(8, val[1] / 8); },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 15,
+              shadowColor: 'rgba(0, 230, 118, 0.5)'
+            }
+          },
+          animationDelay: function(idx) { return idx * 80; }
+        },
+        // Reference lines
+        {
+          type: 'line',
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            lineStyle: { type: 'dashed', width: 1 },
+            label: { fontSize: 9, color: 'rgba(224,230,255,0.4)' },
+            data: [
+              { yAxis: 35, lineStyle: { color: 'rgba(0, 230, 118, 0.3)' }, label: { formatter: '优 35' } },
+              { yAxis: 75, lineStyle: { color: 'rgba(255, 215, 64, 0.3)' }, label: { formatter: '良 75' } },
+              { yAxis: 115, lineStyle: { color: 'rgba(255, 145, 0, 0.3)' }, label: { formatter: '轻度 115' } }
+            ]
+          }
+        }],
+        animationDuration: 1500,
+        animationEasing: 'elasticOut'
+      });
+    }
+
+    // ============================================================
+    // Panel 2: Water Quality Multi-line Chart
+    // ============================================================
+    function initWaterChart() {
+      const days = DataGen.generateDayLabels(30);
+
+      // Generate realistic water quality data
+      function genSmooth(base, range, len) {
+        const arr = [];
+        let v = base;
+        for (let i = 0; i < len; i++) {
+          v += (Math.random() - 0.5) * range;
+          v = Math.max(base - range * 3, Math.min(base + range * 3, v));
+          arr.push(parseFloat(v.toFixed(1)));
+        }
+        return arr;
+      }
+
+      const phData = genSmooth(7.2, 0.15, 30);
+      const doData = genSmooth(8.5, 0.3, 30);
+      const turbData = genSmooth(12, 1.5, 30);
+      const codData = genSmooth(15, 2.0, 30);
+
+      chartWater = createChart(document.getElementById('chart-water'), {
+        grid: { top: 32, right: 12, bottom: 25, left: 38 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        legend: {
+          data: ['pH值', '溶解氧', '浑浊度', 'COD'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 14, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category',
+          data: days,
+          boundaryGap: false,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, interval: 4 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [{
+          name: 'pH值',
+          type: 'line',
+          data: phData,
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#00e676', width: 2 },
+          areaStyle: {
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 230, 118, 0.15)' },
+                { offset: 1, color: 'rgba(0, 230, 118, 0.01)' }
+              ]
+            }
+          }
+        }, {
+          name: '溶解氧',
+          type: 'line',
+          data: doData,
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#00bfa5', width: 2 }
+        }, {
+          name: '浑浊度',
+          type: 'line',
+          data: turbData,
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#4facfe', width: 1.5 }
+        }, {
+          name: 'COD',
+          type: 'line',
+          data: codData,
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#ff9100', width: 1.5, type: 'dashed' }
+        }],
+        animationDuration: 1500
+      });
+    }
+
+    // ============================================================
+    // Panel 3: Carbon Emissions Stacked Bar
+    // ============================================================
+    function initCarbonChart() {
+      const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+      const sectors = ['工业', '交通', '建筑', '农业', '其他'];
+      const colors = ['#00bfa5', '#00e676', '#ffd740', '#ff9100', '#ff5252'];
+
+      const sectorData = [
+        [320, 310, 300, 280, 260, 250, 255, 270, 290, 310, 330, 340], // 工业
+        [120, 115, 130, 140, 155, 165, 170, 160, 145, 135, 125, 118], // 交通
+        [85, 80, 70, 55, 45, 40, 42, 48, 60, 72, 80, 88],           // 建筑
+        [65, 62, 58, 52, 48, 45, 44, 46, 50, 55, 60, 63],           // 农业
+        [40, 38, 35, 32, 30, 28, 27, 29, 33, 36, 38, 42]            // 其他
+      ];
+
+      chartCarbon = createChart(document.getElementById('chart-carbon'), {
+        grid: { top: 32, right: 12, bottom: 25, left: 40 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        legend: {
+          data: sectors,
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 8
+        },
+        xAxis: {
+          type: 'category',
+          data: months,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, fontSize: 9 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          name: '万吨',
+          nameTextStyle: { color: 'rgba(224,230,255,0.35)', fontSize: 9 },
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: sectors.map((name, i) => ({
+          name: name,
+          type: 'bar',
+          stack: 'total',
+          barWidth: '50%',
+          data: sectorData[i],
+          itemStyle: {
+            color: colors[i],
+            borderRadius: i === sectors.length - 1 ? [2, 2, 0, 0] : 0
+          },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 0, 0, 0.3)'
+            }
+          }
+        })),
+        animationDuration: 1200,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ============================================================
+    // Center: China AQI Map
+    // ============================================================
+    function initChinaMap() {
+      fetch('js/china.json')
+        .then(r => r.json())
+        .then(chinaJson => {
+          echarts.registerMap('china', chinaJson);
+          renderChinaMap();
+        })
+        .catch(() => {
+          // Fallback
+          const el = document.getElementById('chart-china-map');
+          el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);">地图数据加载中...</div>';
+        });
+    }
+
+    function renderChinaMap() {
+      // Province AQI data
+      const provinces = [
+        {name:'北京',value:68},{name:'天津',value:82},{name:'河北',value:105},
+        {name:'山西',value:88},{name:'内蒙古',value:45},{name:'辽宁',value:72},
+        {name:'吉林',value:55},{name:'黑龙江',value:48},{name:'上海',value:52},
+        {name:'江苏',value:62},{name:'浙江',value:48},{name:'安徽',value:75},
+        {name:'福建',value:35},{name:'江西',value:42},{name:'山东',value:92},
+        {name:'河南',value:98},{name:'湖北',value:65},{name:'湖南',value:55},
+        {name:'广东',value:38},{name:'广西',value:32},{name:'海南',value:22},
+        {name:'重庆',value:58},{name:'四川',value:62},{name:'贵州',value:35},
+        {name:'云南',value:25},{name:'西藏',value:15},{name:'陕西',value:78},
+        {name:'甘肃',value:52},{name:'青海',value:28},{name:'宁夏',value:65},
+        {name:'新疆',value:85},{name:'台湾',value:40},{name:'香港',value:45},
+        {name:'澳门',value:42}
+      ];
+
+      // Monitoring station locations (effectScatter)
+      const stations = [
+        {name:'北京站',value:[116.46,39.92,68]},
+        {name:'上海站',value:[121.48,31.22,52]},
+        {name:'广州站',value:[113.23,23.16,38]},
+        {name:'成都站',value:[104.07,30.67,62]},
+        {name:'武汉站',value:[114.31,30.52,65]},
+        {name:'西安站',value:[108.95,34.27,78]},
+        {name:'沈阳站',value:[123.38,41.80,72]},
+        {name:'哈尔滨站',value:[126.63,45.75,48]},
+        {name:'昆明站',value:[102.73,25.04,25]},
+        {name:'拉萨站',value:[91.11,29.97,15]},
+        {name:'乌鲁木齐站',value:[87.68,43.77,85]},
+        {name:'南京站',value:[118.78,32.04,62]},
+        {name:'杭州站',value:[120.19,30.26,48]},
+        {name:'长沙站',value:[112.94,28.23,55]},
+        {name:'郑州站',value:[113.65,34.76,98]},
+        {name:'海口站',value:[110.35,20.02,22]},
+        {name:'福州站',value:[119.30,26.08,35]},
+        {name:'重庆站',value:[106.55,29.56,58]},
+        {name:'兰州站',value:[103.73,36.03,52]},
+        {name:'贵阳站',value:[106.71,26.57,35]}
+      ];
+
+      chartMap = createChart(document.getElementById('chart-china-map'), {
+        backgroundColor: 'transparent',
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: function(params) {
+            if (params.seriesType === 'effectScatter') {
+              return `<b>${params.name}</b><br/>AQI: ${params.value[2]}`;
+            }
+            if (params.value !== undefined) {
+              let level = 'AQI: ' + params.value;
+              if (params.value <= 50) level += ' (优)';
+              else if (params.value <= 100) level += ' (良)';
+              else if (params.value <= 150) level += ' (轻度)';
+              else level += ' (中度)';
+              return `<b>${params.name}</b><br/>${level}`;
+            }
+            return params.name;
+          }
+        },
+        visualMap: {
+          type: 'continuous',
+          min: 0,
+          max: 150,
+          left: 20,
+          bottom: 50,
+          text: ['重', '优'],
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          inRange: {
+            color: ['#00e676', '#4caf50', '#ffd740', '#ff9100', '#ff5252', '#b71c1c']
+          },
+          dimension: 0,
+          calculable: true,
+          orient: 'vertical',
+          itemWidth: 12,
+          itemHeight: 120,
+          handleStyle: { color: '#00e676', borderColor: '#00e676' },
+          indicatorStyle: { color: '#fff' }
+        },
+        geo: {
+          map: 'china',
+          roam: false,
+          zoom: 1.15,
+          center: [104, 36],
+          itemStyle: {
+            areaColor: '#0d2a3e',
+            borderColor: 'rgba(0, 191, 165, 0.35)',
+            borderWidth: 0.8,
+            shadowColor: 'rgba(0, 230, 118, 0.08)',
+            shadowBlur: 10
+          },
+          emphasis: {
+            itemStyle: {
+              areaColor: '#1a4a3e',
+              borderColor: '#00e676',
+              borderWidth: 1.5
+            },
+            label: {
+              show: true,
+              color: '#00e676',
+              fontSize: 12
+            }
+          },
+          label: { show: false }
+        },
+        series: [
+          // Map coloring
+          {
+            type: 'map',
+            map: 'china',
+            geoIndex: 0,
+            data: provinces,
+            tooltip: {
+              trigger: 'item'
+            }
+          },
+          // Monitoring station effect scatter
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            data: stations.map(s => ({
+              name: s.name,
+              value: s.value
+            })),
+            symbolSize: function(val) {
+              return Math.max(5, 14 - val[2] / 12);
+            },
+            showEffectOn: 'render',
+            rippleEffect: {
+              brushType: 'stroke',
+              scale: 4,
+              period: 3 + Math.random() * 2
+            },
+            itemStyle: {
+              color: function(params) {
+                const aqi = params.value[2];
+                if (aqi <= 50) return '#00e676';
+                if (aqi <= 100) return '#ffd740';
+                return '#ff5252';
+              },
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 230, 118, 0.5)'
+            },
+            label: {
+              show: false
+            },
+            zlevel: 2
+          }
+        ]
+      });
+    }
+
+    // ============================================================
+    // Panel 5: Ecology Radar Chart
+    // ============================================================
+    function initEcologyRadar() {
+      const indicators = [
+        { name: '空气质量', max: 100 },
+        { name: '水质', max: 100 },
+        { name: '土壤质量', max: 100 },
+        { name: '森林覆盖', max: 100 },
+        { name: '生物多样性', max: 100 },
+        { name: '噪声控制', max: 100 }
+      ];
+
+      chartEcology = createChart(document.getElementById('chart-ecology'), {
+        tooltip: { ...tooltipConfig },
+        legend: {
+          data: ['当前水平', '目标值'],
+          bottom: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 14, itemHeight: 3
+        },
+        radar: {
+          indicator: indicators,
+          center: ['50%', '46%'],
+          radius: '62%',
+          axisName: {
+            color: 'rgba(224,230,255,0.55)',
+            fontSize: 10
+          },
+          splitArea: {
+            areaStyle: {
+              color: ['rgba(0, 230, 118, 0.02)', 'rgba(0, 230, 118, 0.04)',
+                       'rgba(0, 230, 118, 0.02)', 'rgba(0, 230, 118, 0.04)',
+                       'rgba(0, 230, 118, 0.02)']
+            }
+          },
+          axisLine: { lineStyle: { color: 'rgba(0, 230, 118, 0.12)' } },
+          splitLine: { lineStyle: { color: 'rgba(0, 230, 118, 0.08)' } }
+        },
+        series: [{
+          type: 'radar',
+          data: [
+            {
+              name: '当前水平',
+              value: [78, 72, 68, 82, 65, 73],
+              lineStyle: { color: '#00e676', width: 2 },
+              areaStyle: { color: 'rgba(0, 230, 118, 0.2)' },
+              itemStyle: { color: '#00e676' },
+              symbol: 'circle',
+              symbolSize: 5
+            },
+            {
+              name: '目标值',
+              value: [90, 88, 85, 92, 80, 85],
+              lineStyle: { color: '#00bfa5', width: 1.5, type: 'dashed' },
+              areaStyle: { color: 'rgba(0, 191, 165, 0.08)' },
+              itemStyle: { color: '#00bfa5' },
+              symbol: 'diamond',
+              symbolSize: 5
+            }
+          ],
+          animationDuration: 1500
+        }]
+      });
+    }
+
+    // ============================================================
+    // Panel 6: Noise Pollution Heatmap
+    // ============================================================
+    function initNoiseHeatmap() {
+      const zones = ['居民区', '商业区', '工业区', '交通干道', '学校周边', '公园绿地', '医院周边', '施工区域'];
+      const hours = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00', '00:00'];
+
+      // Generate heatmap data [zone_index, hour_index, value]
+      const noiseData = [];
+      const baseNoise = [
+        [35, 42, 45, 48, 46, 45, 50, 52, 45, 38], // 居民区
+        [40, 55, 62, 68, 65, 63, 70, 65, 52, 42], // 商业区
+        [48, 72, 78, 75, 78, 76, 72, 65, 55, 45], // 工业区
+        [50, 75, 72, 68, 65, 68, 78, 72, 58, 48], // 交通干道
+        [32, 55, 58, 52, 58, 56, 48, 42, 35, 30], // 学校周边
+        [30, 35, 38, 42, 40, 38, 42, 40, 35, 28], // 公园绿地
+        [35, 42, 45, 48, 45, 42, 45, 42, 38, 35], // 医院周边
+        [55, 80, 85, 82, 85, 82, 78, 72, 60, 48]  // 施工区域
+      ];
+
+      for (let i = 0; i < zones.length; i++) {
+        for (let j = 0; j < hours.length; j++) {
+          noiseData.push([j, i, baseNoise[i][j] + DataGen.random(-3, 3)]);
+        }
+      }
+
+      chartNoise = createChart(document.getElementById('chart-noise'), {
+        grid: { top: 8, right: 40, bottom: 30, left: 70 },
+        tooltip: {
+          ...tooltipConfig,
+          formatter: function(p) {
+            return `<b>${zones[p.value[1]]}</b><br/>时段: ${hours[p.value[0]]}<br/>噪声: ${p.value[2]} dB(A)`;
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: hours,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, fontSize: 9 },
+          axisTick: { show: false },
+          splitArea: { show: false }
+        },
+        yAxis: {
+          type: 'category',
+          data: zones,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, fontSize: 10 },
+          axisTick: { show: false },
+          splitArea: { show: false }
+        },
+        visualMap: {
+          min: 25,
+          max: 90,
+          show: true,
+          orient: 'vertical',
+          right: 2,
+          top: 'center',
+          itemWidth: 10,
+          itemHeight: 100,
+          text: ['高', '低'],
+          textStyle: { color: 'rgba(224,230,255,0.4)', fontSize: 9 },
+          inRange: {
+            color: ['#00e676', '#4caf50', '#ffd740', '#ff9100', '#ff5252']
+          },
+          calculable: false
+        },
+        series: [{
+          type: 'heatmap',
+          data: noiseData,
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          },
+          itemStyle: {
+            borderColor: 'rgba(5, 10, 26, 0.6)',
+            borderWidth: 2,
+            borderRadius: 2
+          },
+          progressive: 1000,
+          animation: true,
+          animationDuration: 1200
+        }]
+      });
+    }
+
+    // ============================================================
+    // Live Data Updates
+    // ============================================================
+    function updateLiveData() {
+      // Update PM2.5 average
+      const newAvg = DataGen.random(28, 68);
+      const avgEl = document.getElementById('pm25-avg');
+      if (avgEl) {
+        const currentAvg = parseInt(avgEl.textContent) || 42;
+        animateValue(avgEl, currentAvg, newAvg, 1200);
+      }
+      const levelEl = document.getElementById('pm25-level');
+      if (levelEl) {
+        if (newAvg < 35) { levelEl.textContent = '优'; levelEl.style.color = '#00e676'; levelEl.style.borderColor = 'rgba(0,230,118,0.25)'; levelEl.style.background = 'rgba(0,230,118,0.12)'; }
+        else if (newAvg < 75) { levelEl.textContent = '良'; levelEl.style.color = '#ffd740'; levelEl.style.borderColor = 'rgba(255,215,64,0.25)'; levelEl.style.background = 'rgba(255,215,64,0.12)'; }
+        else { levelEl.textContent = '轻度'; levelEl.style.color = '#ff9100'; levelEl.style.borderColor = 'rgba(255,145,0,0.25)'; levelEl.style.background = 'rgba(255,145,0,0.12)'; }
+      }
+
+      // Update weather data
+      const tempEl = document.getElementById('weather-temp-val');
+      if (tempEl) {
+        const newTemp = DataGen.random(22, 32);
+        animateValue(tempEl, parseInt(tempEl.textContent) || 26, newTemp, 1000);
+      }
+
+      // Update weather metrics with unit spans preserved
+      updateWeatherMetric('weather-humidity', DataGen.random(45, 85), '%');
+      updateWeatherMetric('weather-wind', DataGen.randomFloat(1.0, 8.0, 1), 'm/s');
+      updateWeatherMetric('weather-pressure', DataGen.random(1005, 1025), 'hPa');
+      updateWeatherMetric('weather-visibility', DataGen.random(8, 30), 'km');
+
+      // Update map stats
+      const goodRate = DataGen.randomFloat(72, 88, 1);
+      const aqiAvg = DataGen.random(48, 82);
+      const warnCities = DataGen.random(2, 9);
+      document.getElementById('ms-good-rate').textContent = goodRate + '%';
+      document.getElementById('ms-aqi-avg').textContent = aqiAvg;
+      document.getElementById('ms-warn-cities').textContent = warnCities;
+
+      // Update ecology radar
+      if (chartEcology) {
+        chartEcology.setOption({
+          series: [{
+            data: [
+              {
+                name: '当前水平',
+                value: [
+                  DataGen.random(70, 88),
+                  DataGen.random(65, 82),
+                  DataGen.random(60, 78),
+                  DataGen.random(75, 90),
+                  DataGen.random(58, 75),
+                  DataGen.random(65, 82)
+                ]
+              },
+              {
+                name: '目标值',
+                value: [90, 88, 85, 92, 80, 85]
+              }
+            ]
+          }]
+        });
+      }
+
+      // Update weather icon randomly
+      const weatherStates = [
+        { icon: '☀️', desc: '晴' },
+        { icon: '⛅', desc: '多云转晴' },
+        { icon: '🌤️', desc: '多云' },
+        { icon: '🌦️', desc: '阵雨' },
+        { icon: '🌧️', desc: '小雨' },
+        { icon: '🌥️', desc: '阴' }
+      ];
+      const ws = weatherStates[DataGen.random(0, weatherStates.length - 1)];
+      document.getElementById('weather-icon').textContent = ws.icon;
+      document.getElementById('weather-desc').textContent = ws.desc;
+    }
+
+    function updateWeatherMetric(id, value, unit) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.innerHTML = value + '<span class="number-unit">' + unit + '</span>';
+      }
+    }
+  </script>
+</body>
+</html>

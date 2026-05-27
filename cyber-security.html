@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataVision - 网络安全防御中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* Page-specific: Cyber Security SOC */
+    .dashboard {
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(255, 82, 82, 0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 100%, rgba(255, 145, 0, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(0, 242, 254, 0.03) 0%, transparent 40%),
+        linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-darkest) 100%);
+    }
+
+    /* Alert bar at top */
+    .top-alert-bar {
+      height: 28px;
+      background: linear-gradient(90deg, rgba(255,82,82,0.08), rgba(255,145,0,0.05), rgba(255,82,82,0.08));
+      border-bottom: 1px solid rgba(255, 82, 82, 0.12);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .top-alert-bar .alert-label {
+      background: linear-gradient(135deg, #ff5252, #ff9100);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 12px;
+      letter-spacing: 2px;
+      flex-shrink: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      font-family: var(--font-display);
+    }
+    .top-alert-bar .marquee-wrapper {
+      flex: 1;
+      overflow: hidden;
+    }
+    .top-alert-bar .marquee-content {
+      display: flex;
+      animation: marquee 55s linear infinite;
+      white-space: nowrap;
+      gap: 80px;
+      padding-left: 20px;
+    }
+    .top-alert-bar .marquee-item {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .top-alert-bar .marquee-item .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .top-alert-bar .marquee-item .dot.red { background: var(--red); animation: pulse 1.5s ease-in-out infinite; }
+    .top-alert-bar .marquee-item .dot.orange { background: var(--orange); animation: pulse 1.5s ease-in-out infinite; }
+    .top-alert-bar .marquee-item .dot.cyan { background: var(--cyan); }
+    .top-alert-bar .marquee-item .dot.green { background: var(--green); }
+
+    /* Hero attack count */
+    .attack-hero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 0 2px;
+    }
+    .attack-hero .number-display {
+      font-family: var(--font-number);
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--red);
+      text-shadow: 0 0 20px rgba(255, 82, 82, 0.4), 0 0 40px rgba(255, 82, 82, 0.15);
+      line-height: 1;
+    }
+    .attack-hero .number-unit {
+      font-size: 14px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    /* Center map panel */
+    .center-map-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(255, 82, 82, 0.03) 0%, rgba(10, 14, 39, 0.6) 100%);
+      border: 1px solid rgba(255, 82, 82, 0.15);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-map-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+    .map-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+    }
+    .map-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--red);
+      text-shadow: 0 0 20px rgba(255, 82, 82, 0.4);
+    }
+    .map-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .map-stats-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .map-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.8);
+      padding: 6px 16px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 82, 82, 0.1);
+      backdrop-filter: blur(4px);
+    }
+    .map-stat .ms-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .map-stat .ms-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .map-stat .ms-value {
+      font-family: var(--font-number);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* Threat level indicator */
+    .threat-level-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      background: rgba(255, 82, 82, 0.08);
+      border: 1px solid rgba(255, 82, 82, 0.15);
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+    .threat-level-banner .tlb-icon {
+      font-size: 16px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .threat-level-banner .tlb-text {
+      font-size: 12px;
+      color: var(--orange);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    .threat-level-banner .tlb-level {
+      font-family: var(--font-display);
+      font-size: 12px;
+      color: var(--red);
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-left: auto;
+    }
+
+    /* Vulnerability progress rows */
+    .vuln-section { padding-top: 4px; }
+    .vuln-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .vuln-header .vuln-total {
+      font-family: var(--font-number);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--orange);
+      text-shadow: 0 0 10px rgba(255, 145, 0, 0.3);
+    }
+    .vuln-header .vuln-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .progress-row .progress-label { width: 75px; }
+    .progress-row .progress-value { width: 42px; }
+
+    /* SOC status badges row */
+    .soc-status-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .soc-badge {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 5px 4px;
+      background: var(--cyan-05);
+      border: 1px solid var(--cyan-08);
+      border-radius: 4px;
+      gap: 2px;
+    }
+    .soc-badge .sb-val {
+      font-family: var(--font-number);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .soc-badge .sb-label {
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Top Alert Bar -->
+    <div class="top-alert-bar">
+      <div class="alert-label">⚠ THREAT</div>
+      <div class="marquee-wrapper">
+        <div class="marquee-content">
+          <span class="marquee-item"><span class="dot red"></span>检测到来自东欧IP段的DDoS攻击 峰值流量42Gbps 已启动清洗</span>
+          <span class="marquee-item"><span class="dot orange"></span>SQL注入攻击尝试 来源: 185.xxx.xx.12 已拦截并加入黑名单</span>
+          <span class="marquee-item"><span class="dot cyan"></span>防火墙规则已自动更新 新增拦截规则 238 条</span>
+          <span class="marquee-item"><span class="dot red"></span>暗网监控发现疑似数据泄露信息 已启动溯源调查</span>
+          <span class="marquee-item"><span class="dot green"></span>漏洞修复进度: CVE-2026-4521 已完成全部节点部署</span>
+          <span class="marquee-item"><span class="dot orange"></span>异常登录行为检测 来自巴西圣保罗 3次失败尝试</span>
+          <span class="marquee-item"><span class="dot cyan"></span>威胁情报平台更新 新增IOC指标 1,247 个</span>
+          <!-- duplicate for seamless loop -->
+          <span class="marquee-item"><span class="dot red"></span>检测到来自东欧IP段的DDoS攻击 峰值流量42Gbps 已启动清洗</span>
+          <span class="marquee-item"><span class="dot orange"></span>SQL注入攻击尝试 来源: 185.xxx.xx.12 已拦截并加入黑名单</span>
+          <span class="marquee-item"><span class="dot cyan"></span>防火墙规则已自动更新 新增拦截规则 238 条</span>
+          <span class="marquee-item"><span class="dot red"></span>暗网监控发现疑似数据泄露信息 已启动溯源调查</span>
+          <span class="marquee-item"><span class="dot green"></span>漏洞修复进度: CVE-2026-4521 已完成全部节点部署</span>
+          <span class="marquee-item"><span class="dot orange"></span>异常登录行为检测 来自巴西圣保罗 3次失败尝试</span>
+          <span class="marquee-item"><span class="dot cyan"></span>威胁情报平台更新 新增IOC指标 1,247 个</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">GLOBAL COMMAND CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item active" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: Attack Type Distribution -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🎯</span> 攻击类型分布</div>
+            <div class="panel-extra"><span class="status-dot danger"></span> 监控中</div>
+          </div>
+          <div class="panel-body">
+            <div class="attack-hero">
+              <div class="number-display" id="total-attacks">0</div>
+              <span class="number-unit">次攻击</span>
+            </div>
+            <div class="number-label" style="text-align:center; margin-bottom: 4px;">TODAY'S TOTAL ATTACKS</div>
+            <div id="chart-attack-types" class="chart-container" style="height: calc(100% - 58px);"></div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Threat Level Distribution -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🔺</span> 威胁等级分布</div>
+            <div class="panel-extra"><span class="data-tag down" style="background:rgba(255,82,82,0.1);color:var(--red);">↑ 5.2%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-threat-funnel" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Security Events Timeline -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📊</span> 安全事件时间线</div>
+            <div class="panel-extra">24H</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-events-timeline" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-map-panel">
+          <div class="map-title-overlay">
+            <h2>CYBER THREAT MAP</h2>
+            <p>全球威胁态势图</p>
+          </div>
+          <div id="chart-threat-map" class="chart-container"></div>
+          <div class="map-stats-overlay">
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--red);box-shadow:0 0 8px var(--red-50)"></div>
+              <div>
+                <div class="ms-label">今日攻击</div>
+                <div class="ms-value" style="color:var(--red);" id="ms-attacks">284,521</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--green);box-shadow:0 0 8px var(--green-50)"></div>
+              <div>
+                <div class="ms-label">已拦截</div>
+                <div class="ms-value" style="color:var(--green);" id="ms-blocked">283,742</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan-50)"></div>
+              <div>
+                <div class="ms-label">拦截率</div>
+                <div class="ms-value" style="color:var(--cyan);" id="ms-rate">99.73%</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange-50)"></div>
+              <div>
+                <div class="ms-label">活跃威胁</div>
+                <div class="ms-value" style="color:var(--orange);" id="ms-threats">23</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: Firewall Status Gauges -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🔥</span> 防火墙状态</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 运行中</div>
+          </div>
+          <div class="panel-body">
+            <div class="soc-status-row">
+              <div class="soc-badge">
+                <div class="sb-val text-green">ACTIVE</div>
+                <div class="sb-label">WAF状态</div>
+              </div>
+              <div class="soc-badge">
+                <div class="sb-val text-cyan" id="rules-count">12,847</div>
+                <div class="sb-label">活跃规则</div>
+              </div>
+              <div class="soc-badge">
+                <div class="sb-val text-orange" id="blocked-ips">3,291</div>
+                <div class="sb-label">黑名单IP</div>
+              </div>
+            </div>
+            <div class="chart-row">
+              <div id="gauge-inbound" class="chart-container"></div>
+              <div id="gauge-outbound" class="chart-container"></div>
+              <div id="gauge-load" class="chart-container"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 5: Traffic Anomaly Detection -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📈</span> 流量异常检测</div>
+            <div class="panel-extra"><span class="data-tag neutral">AI 监控</span></div>
+          </div>
+          <div class="panel-body">
+            <div class="threat-level-banner">
+              <span class="tlb-icon">🔴</span>
+              <span class="tlb-text">当前威胁等级</span>
+              <span class="tlb-level" id="threat-level">LEVEL III · 中等</span>
+            </div>
+            <div id="chart-anomaly" class="chart-container" style="height: calc(100% - 38px);"></div>
+          </div>
+        </div>
+
+        <!-- Panel 6: Vulnerability Repair Progress -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🔧</span> 漏洞修复进度</div>
+            <div class="panel-extra"><span class="badge badge-orange">修复中</span></div>
+          </div>
+          <div class="panel-body">
+            <div class="vuln-section">
+              <div class="vuln-header">
+                <div>
+                  <div class="vuln-total" id="vuln-total">247</div>
+                  <div class="vuln-label">已发现漏洞总数</div>
+                </div>
+                <div style="text-align: right;">
+                  <div class="vuln-total" style="color: var(--green);" id="vuln-fixed">198</div>
+                  <div class="vuln-label">已修复漏洞</div>
+                </div>
+              </div>
+              <div class="progress-row">
+                <div class="progress-label" style="color: var(--red);">严重漏洞</div>
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" id="vuln-p1" style="width: 0%; background: linear-gradient(90deg, #ff5252, #ff1744);"></div>
+                </div>
+                <div class="progress-value" style="color: var(--red);">95%</div>
+              </div>
+              <div class="progress-row">
+                <div class="progress-label" style="color: var(--orange);">高危漏洞</div>
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" id="vuln-p2" style="width: 0%; background: linear-gradient(90deg, #ff9100, #ff6d00);"></div>
+                </div>
+                <div class="progress-value" style="color: var(--orange);">87%</div>
+              </div>
+              <div class="progress-row">
+                <div class="progress-label" style="color: var(--yellow);">中危漏洞</div>
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" id="vuln-p3" style="width: 0%; background: linear-gradient(90deg, #ffd740, #ffab00);"></div>
+                </div>
+                <div class="progress-value" style="color: var(--yellow);">72%</div>
+              </div>
+              <div class="progress-row">
+                <div class="progress-label" style="color: var(--blue);">低危漏洞</div>
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" id="vuln-p4" style="width: 0%; background: linear-gradient(90deg, #4facfe, #00f2fe);"></div>
+                </div>
+                <div class="progress-value" style="color: var(--blue);">45%</div>
+              </div>
+              <div class="divider"></div>
+              <div id="chart-vuln-radar" class="chart-container" style="height: calc(100% - 195px); min-height: 0;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Cyber Security SOC - Charts Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(initCyberSecurity, 200);
+    });
+
+    function initCyberSecurity() {
+      // Animate hero numbers
+      animateValue(document.getElementById('total-attacks'), 0, 284521, 2500);
+
+      // Animate vulnerability progress bars with delay
+      setTimeout(() => {
+        document.getElementById('vuln-p1').style.width = '95%';
+        document.getElementById('vuln-p2').style.width = '87%';
+        document.getElementById('vuln-p3').style.width = '72%';
+        document.getElementById('vuln-p4').style.width = '45%';
+      }, 300);
+
+      // Initialize all charts
+      initAttackTypes();
+      initThreatFunnel();
+      initEventsTimeline();
+      initThreatMap();
+      initFirewallGauges();
+      initAnomalyDetection();
+      initVulnRadar();
+
+      // Periodic updates
+      setInterval(updateSOCData, 4000);
+      setInterval(updateThreatLevel, 8000);
+    }
+
+    // ---- Panel 1: Attack Type Distribution (Horizontal Bar) ----
+    function initAttackTypes() {
+      const types = ['中间人攻击', '零日漏洞', '恶意软件', '钓鱼攻击', '暴力破解', 'XSS攻击', 'SQL注入', 'DDoS攻击'];
+      const values = [4521, 6832, 12453, 18764, 25431, 38921, 52347, 84252];
+
+      createChart(document.getElementById('chart-attack-types'), {
+        grid: { top: 4, right: 58, bottom: 4, left: 72 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        xAxis: { type: 'value', show: false },
+        yAxis: {
+          type: 'category', data: types,
+          axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: 'rgba(224,230,255,0.65)', fontSize: 11 }
+        },
+        series: [{
+          type: 'bar',
+          data: values.map((v, i) => {
+            const ratio = i / (types.length - 1);
+            return {
+              value: v,
+              itemStyle: {
+                borderRadius: [0, 3, 3, 0],
+                color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                  { offset: 0, color: 'rgba(255, 82, 82, 0.08)' },
+                  { offset: 0.5, color: `rgba(255, ${Math.floor(82 + 63 * ratio)}, ${Math.floor(82 * (1 - ratio * 0.6))}, ${0.6 + ratio * 0.4})` },
+                  { offset: 1, color: ratio > 0.5 ? '#ff5252' : '#ff9100' }
+                ])
+              }
+            };
+          }),
+          barWidth: '58%',
+          label: {
+            show: true, position: 'right',
+            color: 'rgba(224,230,255,0.6)',
+            fontSize: 11, fontFamily: 'Rajdhani',
+            formatter: '{c}'
+          },
+          animationDuration: 1500,
+          animationEasing: 'cubicOut'
+        }]
+      });
+    }
+
+    // ---- Panel 2: Threat Level Funnel ----
+    function initThreatFunnel() {
+      createChart(document.getElementById('chart-threat-funnel'), {
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: '{b}: {c} ({d}%)'
+        },
+        series: [{
+          type: 'funnel',
+          left: '10%',
+          top: 12,
+          bottom: 12,
+          width: '80%',
+          min: 0,
+          max: 100,
+          minSize: '15%',
+          maxSize: '100%',
+          sort: 'descending',
+          gap: 3,
+          label: {
+            show: true,
+            position: 'inside',
+            formatter: function(params) {
+              return params.name + ' ' + params.value + '%';
+            },
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#fff',
+            textShadowBlur: 4,
+            textShadowColor: 'rgba(0,0,0,0.5)'
+          },
+          labelLine: { show: false },
+          itemStyle: {
+            borderColor: 'rgba(5, 10, 26, 0.8)',
+            borderWidth: 2
+          },
+          emphasis: {
+            label: { fontSize: 14 },
+            itemStyle: { shadowBlur: 20, shadowColor: 'rgba(255,82,82,0.3)' }
+          },
+          data: [
+            { value: 45, name: '信息', itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#546e7a' }, { offset: 1, color: '#78909c' }]) } },
+            { value: 30, name: '低危', itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#1565c0' }, { offset: 1, color: '#42a5f5' }]) } },
+            { value: 15, name: '中危', itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#f9a825' }, { offset: 1, color: '#fdd835' }]) } },
+            { value: 7, name: '高危', itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#e65100' }, { offset: 1, color: '#ff9100' }]) } },
+            { value: 3, name: '严重', itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#b71c1c' }, { offset: 1, color: '#ff5252' }]) } }
+          ],
+          animationType: 'scale',
+          animationEasing: 'elasticOut',
+          animationDuration: 1500
+        }]
+      });
+    }
+
+    // ---- Panel 3: Security Events Timeline (Stacked Bar) ----
+    function initEventsTimeline() {
+      const hours = [];
+      for (let i = 0; i < 24; i++) {
+        hours.push(String(i).padStart(2, '0') + ':00');
+      }
+      const blocked = DataGen.randomArray(24, 200, 1200);
+      const pending = DataGen.randomArray(24, 5, 60);
+      const resolved = DataGen.randomArray(24, 30, 180);
+
+      createChart(document.getElementById('chart-events-timeline'), {
+        grid: { top: 30, right: 12, bottom: 24, left: 38 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        legend: {
+          data: ['已拦截', '待处理', '已处理'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 10, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category', data: hours,
+          axisLine: axisLineStyle, axisLabel: { ...axisLabelStyle, interval: 3 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [
+          {
+            name: '已拦截',
+            type: 'bar',
+            stack: 'events',
+            data: blocked,
+            barWidth: '55%',
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#00f2fe' },
+                { offset: 1, color: 'rgba(0, 242, 254, 0.3)' }
+              ])
+            }
+          },
+          {
+            name: '待处理',
+            type: 'bar',
+            stack: 'events',
+            data: pending,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#ff9100' },
+                { offset: 1, color: 'rgba(255, 145, 0, 0.4)' }
+              ])
+            }
+          },
+          {
+            name: '已处理',
+            type: 'bar',
+            stack: 'events',
+            data: resolved,
+            itemStyle: {
+              borderRadius: [2, 2, 0, 0],
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#00e676' },
+                { offset: 1, color: 'rgba(0, 230, 118, 0.3)' }
+              ])
+            }
+          }
+        ],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ---- Center: Global Cyber Threat Map ----
+    function initThreatMap() {
+      fetch('js/world.json')
+        .then(r => r.json())
+        .then(worldJson => {
+          echarts.registerMap('world', worldJson);
+          renderThreatMap();
+        })
+        .catch(() => {
+          const el = document.getElementById('chart-threat-map');
+          el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:14px;">⚠ 威胁地图数据加载中...</div>';
+        });
+    }
+
+    function renderThreatMap() {
+      // Attack sources (hostile)
+      const attackSources = [
+        { name: '莫斯科', value: [37.62, 55.75, 28500] },
+        { name: '圣彼得堡', value: [30.32, 59.94, 15200] },
+        { name: '平壤', value: [125.75, 39.02, 12800] },
+        { name: '德黑兰', value: [51.39, 35.69, 9800] },
+        { name: '拉各斯', value: [3.39, 6.45, 8400] },
+        { name: '圣保罗', value: [-46.63, -23.55, 11200] },
+        { name: '雅加达', value: [106.85, -6.21, 7600] },
+        { name: '河内', value: [105.85, 21.02, 6500] },
+        { name: '布加勒斯特', value: [26.10, 44.43, 9200] },
+        { name: '基辅', value: [30.52, 50.45, 8700] },
+        { name: '曼谷', value: [100.50, 13.76, 5800] },
+        { name: '墨西哥城', value: [-99.13, 19.43, 4200] },
+        { name: '纽约', value: [-74.00, 40.71, 6400] },
+        { name: '伦敦', value: [-0.12, 51.51, 5200] },
+        { name: '孟买', value: [72.88, 19.08, 7800] }
+      ];
+
+      // Defense centers (friendly)
+      const defenseCenters = [
+        { name: '北京防御中心', value: [116.46, 39.92, 50000] },
+        { name: '上海防御中心', value: [121.48, 31.22, 38000] }
+      ];
+
+      // Attack lines converging on defense centers
+      const attackLines = [];
+      const bjCoord = [116.46, 39.92];
+      const shCoord = [121.48, 31.22];
+      attackSources.forEach(src => {
+        const target = Math.random() > 0.4 ? bjCoord : shCoord;
+        attackLines.push({
+          coords: [src.value.slice(0, 2), target]
+        });
+      });
+
+      createChart(document.getElementById('chart-threat-map'), {
+        backgroundColor: 'transparent',
+        geo: {
+          map: 'world', roam: false, zoom: 1.25,
+          center: [20, 18], silent: false,
+          itemStyle: {
+            areaColor: '#1a0a0a',
+            borderColor: '#3a1515',
+            borderWidth: 0.6,
+            shadowColor: 'rgba(255, 82, 82, 0.03)',
+            shadowBlur: 8
+          },
+          emphasis: {
+            itemStyle: {
+              areaColor: '#2a1010',
+              borderColor: '#ff5252',
+              borderWidth: 1
+            },
+            label: { show: false }
+          },
+          regions: [
+            { name: 'Russia', itemStyle: { areaColor: '#2a0e0e' } },
+            { name: 'China', itemStyle: { areaColor: '#0a1a2a' } },
+            { name: 'North Korea', itemStyle: { areaColor: '#2a0e0e' } },
+            { name: 'Iran', itemStyle: { areaColor: '#2a0e0e' } },
+            { name: 'Brazil', itemStyle: { areaColor: '#1f1008' } },
+            { name: 'Nigeria', itemStyle: { areaColor: '#1f1008' } },
+            { name: 'Romania', itemStyle: { areaColor: '#1f1008' } },
+            { name: 'Ukraine', itemStyle: { areaColor: '#1f1008' } }
+          ]
+        },
+        series: [
+          // Attack source pulsing dots (RED)
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            data: attackSources.map(c => ({ name: c.name, value: c.value })),
+            symbolSize: function (val) { return Math.max(5, val[2] / 2800); },
+            showEffectOn: 'render',
+            rippleEffect: { brushType: 'stroke', scale: 5, period: 3 },
+            itemStyle: {
+              color: '#ff5252',
+              shadowBlur: 15,
+              shadowColor: 'rgba(255, 82, 82, 0.6)'
+            },
+            label: {
+              show: true, formatter: '{b}', position: 'right',
+              fontSize: 9, color: 'rgba(255, 82, 82, 0.7)', distance: 5
+            },
+            zlevel: 3
+          },
+          // Defense center pulsing dots (GREEN)
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            data: defenseCenters.map(c => ({ name: c.name, value: c.value })),
+            symbolSize: 14,
+            showEffectOn: 'render',
+            rippleEffect: { brushType: 'stroke', scale: 6, period: 4, number: 3 },
+            itemStyle: {
+              color: '#00e676',
+              shadowBlur: 20,
+              shadowColor: 'rgba(0, 230, 118, 0.6)'
+            },
+            label: {
+              show: true, formatter: '{b}', position: 'bottom',
+              fontSize: 10, color: 'rgba(0, 230, 118, 0.8)', distance: 8,
+              fontWeight: 600
+            },
+            zlevel: 4
+          },
+          // Attack lines (RED, converging on defense centers)
+          {
+            type: 'lines',
+            coordinateSystem: 'geo',
+            data: attackLines,
+            lineStyle: {
+              color: '#ff5252', width: 1.2, opacity: 0.4, curveness: 0.3
+            },
+            effect: {
+              show: true, period: 4, trailLength: 0.5,
+              color: '#ff5252', symbolSize: 3, symbol: 'arrow'
+            },
+            zlevel: 2
+          },
+          // Secondary attack lines (orange, subtle)
+          {
+            type: 'lines',
+            coordinateSystem: 'geo',
+            data: [
+              { coords: [[37.62, 55.75], [30.32, 59.94]] },
+              { coords: [[26.10, 44.43], [30.52, 50.45]] },
+              { coords: [[-46.63, -23.55], [-99.13, 19.43]] },
+              { coords: [[105.85, 21.02], [100.50, 13.76]] },
+              { coords: [[106.85, -6.21], [100.50, 13.76]] },
+              { coords: [[-74.00, 40.71], [-0.12, 51.51]] }
+            ],
+            lineStyle: {
+              color: '#ff9100', width: 0.8, opacity: 0.2, curveness: 0.2
+            },
+            effect: {
+              show: true, period: 6, trailLength: 0.3,
+              color: '#ff9100', symbolSize: 2
+            },
+            zlevel: 1
+          }
+        ]
+      });
+    }
+
+    // ---- Panel 4: Firewall Gauges ----
+    function initFirewallGauges() {
+      const makeGauge = (name, value, color, gradEnd) => ({
+        series: [{
+          type: 'gauge',
+          center: ['50%', '58%'], radius: '88%',
+          startAngle: 220, endAngle: -40,
+          min: 0, max: 100,
+          pointer: { show: false },
+          progress: {
+            show: true, width: 10, roundCap: true,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: color },
+                { offset: 1, color: gradEnd }
+              ])
+            }
+          },
+          axisLine: { lineStyle: { width: 10, color: [[1, 'rgba(255,82,82,0.06)']] } },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          detail: {
+            valueAnimation: true,
+            formatter: '{value}%',
+            fontSize: 18, fontFamily: 'Rajdhani', fontWeight: 700,
+            color: color, offsetCenter: [0, '15%']
+          },
+          title: {
+            fontSize: 10, color: 'rgba(224,230,255,0.45)',
+            offsetCenter: [0, '58%']
+          },
+          data: [{ value, name }]
+        }]
+      });
+
+      createChart(document.getElementById('gauge-inbound'), makeGauge('入站过滤', 99.2, '#00e676', '#00bfa5'));
+      createChart(document.getElementById('gauge-outbound'), makeGauge('出站检测', 97.8, '#00f2fe', '#4facfe'));
+      createChart(document.getElementById('gauge-load'), makeGauge('系统负载', 62, '#ff9100', '#ff5252'));
+    }
+
+    // ---- Panel 5: Traffic Anomaly Detection ----
+    function initAnomalyDetection() {
+      const timeLabels = DataGen.generateTimeLabels(48, 'minute');
+      const normalBaseline = [];
+      const upperBound = [];
+      const lowerBound = [];
+      const actualTraffic = [];
+
+      let base = 500;
+      for (let i = 0; i < 48; i++) {
+        base += DataGen.random(-30, 30);
+        base = Math.max(300, Math.min(700, base));
+        normalBaseline.push(base);
+        upperBound.push(base + 120);
+        lowerBound.push(Math.max(100, base - 120));
+
+        // Occasionally spike above normal
+        let actual = base + DataGen.random(-50, 50);
+        if (i === 12 || i === 28 || i === 38) actual = base + DataGen.random(200, 400); // anomaly spikes
+        actualTraffic.push(actual);
+      }
+
+      const anomalyPoints = [];
+      actualTraffic.forEach((v, i) => {
+        if (v > upperBound[i]) {
+          anomalyPoints.push({
+            coord: [i, v],
+            value: v,
+            symbol: 'pin',
+            symbolSize: 28,
+            itemStyle: { color: '#ff5252' },
+            label: {
+              show: true, formatter: '异常', color: '#fff', fontSize: 9,
+              position: 'inside'
+            }
+          });
+        }
+      });
+
+      createChart(document.getElementById('chart-anomaly'), {
+        grid: { top: 18, right: 12, bottom: 24, left: 42 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis'
+        },
+        legend: {
+          data: ['实际流量', '正常范围'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.45)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category', data: timeLabels,
+          boundaryGap: false,
+          axisLine: axisLineStyle, axisLabel: { ...axisLabelStyle, interval: 9 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: axisLabelStyle
+        },
+        series: [
+          // Upper bound (invisible, for area)
+          {
+            name: '正常范围',
+            type: 'line',
+            data: upperBound,
+            smooth: true, symbol: 'none',
+            lineStyle: { opacity: 0 },
+            areaStyle: { color: 'transparent' },
+            stack: 'band',
+            z: 1
+          },
+          // Normal range band
+          {
+            name: '',
+            type: 'line',
+            data: lowerBound,
+            smooth: true, symbol: 'none',
+            lineStyle: { opacity: 0 },
+            areaStyle: {
+              color: 'rgba(0, 242, 254, 0.06)'
+            },
+            stack: 'band',
+            z: 1
+          },
+          // Actual traffic line
+          {
+            name: '实际流量',
+            type: 'line',
+            data: actualTraffic,
+            smooth: true, symbol: 'none',
+            lineStyle: {
+              color: '#ff9100', width: 2,
+              shadowColor: 'rgba(255, 145, 0, 0.3)', shadowBlur: 6
+            },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(255, 145, 0, 0.15)' },
+                { offset: 1, color: 'rgba(255, 145, 0, 0.01)' }
+              ])
+            },
+            markPoint: {
+              data: anomalyPoints,
+              animation: true
+            },
+            z: 2
+          },
+          // Normal baseline
+          {
+            name: '',
+            type: 'line',
+            data: normalBaseline,
+            smooth: true, symbol: 'none',
+            lineStyle: { color: 'rgba(0, 242, 254, 0.3)', width: 1, type: 'dashed' },
+            z: 1
+          }
+        ],
+        animationDuration: 1800
+      });
+    }
+
+    // ---- Panel 6: Vulnerability Radar ----
+    function initVulnRadar() {
+      createChart(document.getElementById('chart-vuln-radar'), {
+        radar: {
+          center: ['50%', '52%'],
+          radius: '68%',
+          indicator: [
+            { name: '注入', max: 100 },
+            { name: '认证', max: 100 },
+            { name: '加密', max: 100 },
+            { name: '配置', max: 100 },
+            { name: '权限', max: 100 },
+            { name: '日志', max: 100 }
+          ],
+          axisName: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          splitArea: {
+            areaStyle: {
+              color: ['rgba(255,82,82,0.02)', 'rgba(255,82,82,0.04)', 'rgba(255,82,82,0.02)', 'rgba(255,82,82,0.04)']
+            }
+          },
+          axisLine: { lineStyle: { color: 'rgba(255,82,82,0.1)' } },
+          splitLine: { lineStyle: { color: 'rgba(255,82,82,0.08)' } }
+        },
+        series: [{
+          type: 'radar',
+          data: [
+            {
+              value: [95, 82, 78, 65, 88, 72],
+              name: '修复率',
+              lineStyle: { color: '#00e676', width: 2 },
+              areaStyle: { color: 'rgba(0, 230, 118, 0.15)' },
+              itemStyle: { color: '#00e676' },
+              symbol: 'circle',
+              symbolSize: 5
+            },
+            {
+              value: [100, 100, 100, 100, 100, 100],
+              name: '目标',
+              lineStyle: { color: 'rgba(255, 82, 82, 0.3)', width: 1, type: 'dashed' },
+              areaStyle: { color: 'rgba(255, 82, 82, 0.03)' },
+              itemStyle: { color: 'transparent' },
+              symbol: 'none'
+            }
+          ],
+          animationDuration: 1500
+        }]
+      });
+    }
+
+    // ---- Live Data Updates ----
+    function updateSOCData() {
+      // Update total attacks
+      const attackEl = document.getElementById('total-attacks');
+      const current = parseInt((attackEl.textContent || '0').replace(/,/g, '')) || 284521;
+      const next = current + DataGen.random(20, 150);
+      animateValue(attackEl, current, next, 1500);
+
+      // Update map stats
+      const msAttacks = document.getElementById('ms-attacks');
+      const msBlocked = document.getElementById('ms-blocked');
+      const curAttacks = parseInt((msAttacks.textContent || '0').replace(/,/g, '')) || 284521;
+      const newAttacks = curAttacks + DataGen.random(20, 150);
+      const newBlocked = newAttacks - DataGen.random(15, 30);
+      const rate = ((newBlocked / newAttacks) * 100).toFixed(2);
+      msAttacks.textContent = newAttacks.toLocaleString();
+      msBlocked.textContent = newBlocked.toLocaleString();
+      document.getElementById('ms-rate').textContent = rate + '%';
+      document.getElementById('ms-threats').textContent = DataGen.random(15, 35);
+
+      // Update firewall stats
+      document.getElementById('rules-count').textContent = (12847 + DataGen.random(0, 30)).toLocaleString();
+      document.getElementById('blocked-ips').textContent = (3291 + DataGen.random(0, 15)).toLocaleString();
+
+      // Update firewall gauges slightly
+      const gaugeInbound = echarts.getInstanceByDom(document.getElementById('gauge-inbound'));
+      const gaugeOutbound = echarts.getInstanceByDom(document.getElementById('gauge-outbound'));
+      const gaugeLoad = echarts.getInstanceByDom(document.getElementById('gauge-load'));
+
+      if (gaugeInbound) {
+        gaugeInbound.setOption({ series: [{ data: [{ value: DataGen.randomFloat(98.5, 99.9, 1), name: '入站过滤' }] }] });
+      }
+      if (gaugeOutbound) {
+        gaugeOutbound.setOption({ series: [{ data: [{ value: DataGen.randomFloat(96.5, 99.5, 1), name: '出站检测' }] }] });
+      }
+      if (gaugeLoad) {
+        gaugeLoad.setOption({ series: [{ data: [{ value: DataGen.random(45, 78), name: '系统负载' }] }] });
+      }
+    }
+
+    function updateThreatLevel() {
+      const levels = [
+        'LEVEL I · 低',
+        'LEVEL II · 较低',
+        'LEVEL III · 中等',
+        'LEVEL IV · 较高',
+        'LEVEL III · 中等'
+      ];
+      const el = document.getElementById('threat-level');
+      el.textContent = DataGen.randomFromList(levels);
+    }
+  </script>
+</body>
+</html>

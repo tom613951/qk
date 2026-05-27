@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataVision - 金融交易监控中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* ---- Financial Theme Overrides ---- */
+    .fin-gold { color: #ffd740; }
+    .fin-amber { color: #ff9100; }
+    .fin-up { color: #ff5252; }
+    .fin-down { color: #00e676; }
+
+    /* Center map panel */
+    .center-map-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(255, 215, 64, 0.02) 0%, rgba(10, 14, 39, 0.6) 100%);
+      border: 1px solid rgba(255, 215, 64, 0.12);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-map-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, #ffd740, transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+    .map-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+    }
+    .map-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: #ffd740;
+      text-shadow: 0 0 20px rgba(255, 215, 64, 0.3);
+    }
+    .map-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .map-stats-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      right: 12px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+    }
+    .map-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.75);
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 215, 64, 0.08);
+      backdrop-filter: blur(4px);
+    }
+    .map-stat .ms-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .map-stat .ms-label {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .map-stat .ms-value {
+      font-family: var(--font-number);
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffd740;
+    }
+
+    /* Stock ticker item overrides for financial style */
+    .stock-item {
+      display: flex;
+      align-items: center;
+      padding: 7px 12px;
+      border-bottom: 1px solid rgba(255, 215, 64, 0.04);
+      font-size: 12px;
+      transition: background 0.3s ease;
+    }
+    .stock-item:hover {
+      background: rgba(255, 215, 64, 0.03);
+    }
+    .stock-code {
+      font-family: var(--font-number);
+      font-weight: 600;
+      color: #ffd740;
+      width: 60px;
+      flex-shrink: 0;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+    .stock-name {
+      flex: 1;
+      color: var(--text-primary);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stock-price {
+      font-family: var(--font-number);
+      font-weight: 700;
+      width: 70px;
+      text-align: right;
+      font-size: 13px;
+    }
+    .stock-change {
+      font-family: var(--font-number);
+      font-weight: 600;
+      width: 65px;
+      text-align: right;
+      font-size: 12px;
+      border-radius: 3px;
+      padding: 1px 6px;
+      margin-left: 6px;
+    }
+    .stock-change.up {
+      color: #ff5252;
+      background: rgba(255, 82, 82, 0.1);
+    }
+    .stock-change.down {
+      color: #00e676;
+      background: rgba(0, 230, 118, 0.1);
+    }
+
+    /* Gauge row */
+    .gauge-triple-row {
+      display: flex;
+      gap: 4px;
+      height: 100%;
+    }
+    .gauge-triple-row > div { flex: 1; }
+
+    /* Trading heatmap bar label */
+    .trading-pair-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Gold-themed panel title accent */
+    .panel.fin-panel .panel-title::before {
+      background: linear-gradient(135deg, #ffd740 0%, #ff9100 100%);
+      box-shadow: 0 0 6px rgba(255, 215, 64, 0.5);
+    }
+
+    /* Gold border hover for financial panels */
+    .panel.fin-panel:hover {
+      border-color: rgba(255, 215, 64, 0.25);
+    }
+
+    /* Scrollbar gold tint */
+    .panel.fin-panel ::-webkit-scrollbar-thumb {
+      background: rgba(255, 215, 64, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">GLOBAL COMMAND CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item active" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: 实时行情 Stock Ticker -->
+        <div class="panel fin-panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📊</span> 实时行情</div>
+            <div class="panel-extra"><span class="status-dot online"></span> LIVE</div>
+          </div>
+          <div class="panel-body" style="padding:0;">
+            <div class="scroll-list-wrapper" id="stock-scroll-wrapper">
+              <div class="scroll-list" id="stock-scroll-list">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: 交易量分布 Scatter/Bubble -->
+        <div class="panel fin-panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">💎</span> 交易量分布</div>
+            <div class="panel-extra">今日</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-volume-scatter" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: 资产配置比例 Sunburst -->
+        <div class="panel fin-panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🏦</span> 资产配置比例</div>
+            <div class="panel-extra">AUM ¥1.2T</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-asset-sunburst" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-map-panel">
+          <div class="map-title-overlay">
+            <h2>GLOBAL CAPITAL FLOW</h2>
+            <p>全球资金流向实时监控</p>
+          </div>
+          <div id="chart-world-map" class="chart-container"></div>
+          <div class="map-stats-overlay">
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#ffd740;box-shadow:0 0 8px rgba(255,215,64,0.5)"></div>
+              <div>
+                <div class="ms-label">今日交易额</div>
+                <div class="ms-value" id="ms-volume">¥2.84T</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#00f2fe;box-shadow:0 0 8px rgba(0,242,254,0.5)"></div>
+              <div>
+                <div class="ms-label">活跃账户</div>
+                <div class="ms-value" id="ms-accounts">1,284,521</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#ff9100;box-shadow:0 0 8px rgba(255,145,0,0.5)"></div>
+              <div>
+                <div class="ms-label">大额交易</div>
+                <div class="ms-value" id="ms-large">3,842</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:#ff5252;box-shadow:0 0 8px rgba(255,82,82,0.5)"></div>
+              <div>
+                <div class="ms-label">风控拦截</div>
+                <div class="ms-value" id="ms-risk">127</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: K线图 + 成交量 Candlestick -->
+        <div class="panel fin-panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">📈</span> K线图 · 上证指数</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 0.85%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-candlestick" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 5: 风控预警指标 3 Gauges -->
+        <div class="panel fin-panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🛡️</span> 风控预警指标</div>
+            <div class="panel-extra"><span class="status-dot warning"></span> 关注</div>
+          </div>
+          <div class="panel-body">
+            <div class="gauge-triple-row">
+              <div id="gauge-volatility" class="chart-container"></div>
+              <div id="gauge-liquidity" class="chart-container"></div>
+              <div id="gauge-credit" class="chart-container"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 6: 交易热度排行 -->
+        <div class="panel fin-panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🔥</span> 交易热度排行</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 15.2%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-trading-heat" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Financial Trading Dashboard - Chart Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(initPage, 200);
+    });
+
+    function initPage() {
+      initStockTicker();
+      initVolumeScatter();
+      initAssetSunburst();
+      initWorldMap();
+      initCandlestick();
+      initRiskGauges();
+      initTradingHeat();
+
+      // Periodic updates
+      setInterval(updateLiveData, 3000);
+    }
+
+    // ============================================================
+    // Panel 1: 实时行情 - Auto-scrolling Stock Ticker
+    // ============================================================
+
+    function initStockTicker() {
+      const stocks = [
+        { code: '600519', name: '贵州茅台', price: 1756.80, change: 2.35 },
+        { code: '601318', name: '中国平安', price: 48.92, change: -1.28 },
+        { code: '000858', name: '五粮液', price: 168.45, change: 1.67 },
+        { code: '600036', name: '招商银行', price: 35.82, change: 0.85 },
+        { code: '000333', name: '美的集团', price: 62.15, change: -0.42 },
+        { code: '601888', name: '中国中免', price: 89.30, change: 3.12 },
+        { code: '300750', name: '宁德时代', price: 212.60, change: -2.18 },
+        { code: '600900', name: '长江电力', price: 28.45, change: 0.56 },
+        { code: '601012', name: '隆基绿能', price: 26.78, change: -1.95 },
+        { code: '000001', name: '平安银行', price: 11.35, change: 0.72 },
+        { code: '600276', name: '恒瑞医药', price: 45.60, change: 1.23 },
+        { code: '002594', name: '比亚迪', price: 265.40, change: 4.56 },
+        { code: '601166', name: '兴业银行', price: 17.82, change: -0.38 },
+        { code: '000651', name: '格力电器', price: 38.90, change: -0.91 },
+        { code: '600887', name: '伊利股份', price: 31.25, change: 0.48 }
+      ];
+
+      const listEl = document.getElementById('stock-scroll-list');
+      let html = '';
+      stocks.forEach(s => {
+        const isUp = s.change >= 0;
+        const priceColor = isUp ? '#ff5252' : '#00e676';
+        const changeClass = isUp ? 'up' : 'down';
+        const changeStr = (isUp ? '+' : '') + s.change.toFixed(2) + '%';
+        html += `
+          <div class="stock-item">
+            <span class="stock-code">${s.code}</span>
+            <span class="stock-name">${s.name}</span>
+            <span class="stock-price" style="color:${priceColor}">${s.price.toFixed(2)}</span>
+            <span class="stock-change ${changeClass}">${changeStr}</span>
+          </div>`;
+      });
+      listEl.innerHTML = html;
+      initScrollList(document.getElementById('stock-scroll-wrapper'));
+    }
+
+    // ============================================================
+    // Panel 2: 交易量分布 - Scatter/Bubble Chart
+    // ============================================================
+
+    function initVolumeScatter() {
+      const data = [];
+      for (let i = 0; i < 60; i++) {
+        const hour = 9 + Math.random() * 6.5; // 9:00 - 15:30
+        const price = DataGen.randomFloat(10, 200, 2);
+        const volume = DataGen.random(500, 50000);
+        data.push([hour, price, volume]);
+      }
+
+      createChart(document.getElementById('chart-volume-scatter'), {
+        grid: { top: 18, right: 20, bottom: 30, left: 42 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: function(p) {
+            const h = Math.floor(p.value[0]);
+            const m = Math.round((p.value[0] - h) * 60);
+            return `时间: ${h}:${String(m).padStart(2,'0')}<br/>价格: ¥${p.value[1]}<br/>成交量: ${p.value[2].toLocaleString()}`;
+          }
+        },
+        xAxis: {
+          type: 'value',
+          min: 9, max: 15.5,
+          axisLine: axisLineStyle,
+          axisLabel: {
+            ...axisLabelStyle,
+            formatter: function(v) {
+              const h = Math.floor(v);
+              const m = Math.round((v - h) * 60);
+              return h + ':' + String(m).padStart(2, '0');
+            }
+          },
+          splitLine: splitLineStyle
+        },
+        yAxis: {
+          type: 'value',
+          name: '价格',
+          nameTextStyle: { color: 'rgba(224,230,255,0.35)', fontSize: 10 },
+          axisLine: axisLineStyle,
+          axisLabel: axisLabelStyle,
+          splitLine: splitLineStyle
+        },
+        visualMap: {
+          show: false,
+          dimension: 2,
+          min: 500,
+          max: 50000,
+          inRange: {
+            color: ['#4facfe', '#00f2fe', '#ffd740', '#ff9100']
+          }
+        },
+        series: [{
+          type: 'scatter',
+          data: data,
+          symbolSize: function(val) {
+            return Math.max(4, Math.sqrt(val[2]) / 4);
+          },
+          itemStyle: {
+            opacity: 0.75,
+            shadowBlur: 6,
+            shadowColor: 'rgba(255, 215, 64, 0.3)'
+          },
+          emphasis: {
+            itemStyle: {
+              opacity: 1,
+              shadowBlur: 15,
+              shadowColor: 'rgba(255, 215, 64, 0.6)'
+            }
+          },
+          animationDelay: function(idx) { return idx * 15; }
+        }]
+      });
+    }
+
+    // ============================================================
+    // Panel 3: 资产配置比例 - Sunburst Chart
+    // ============================================================
+
+    function initAssetSunburst() {
+      createChart(document.getElementById('chart-asset-sunburst'), {
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'item',
+          formatter: '{b}: {c}%'
+        },
+        series: [{
+          type: 'sunburst',
+          center: ['50%', '52%'],
+          radius: ['18%', '92%'],
+          sort: null,
+          emphasis: {
+            focus: 'ancestor',
+            itemStyle: {
+              shadowBlur: 20,
+              shadowColor: 'rgba(255, 215, 64, 0.4)'
+            }
+          },
+          label: {
+            fontSize: 10,
+            color: '#e0e6ff',
+            rotate: 'radial',
+            minAngle: 15
+          },
+          itemStyle: {
+            borderColor: 'rgba(5, 10, 26, 0.6)',
+            borderWidth: 2,
+            borderRadius: 4
+          },
+          levels: [
+            {},
+            {
+              r0: '18%', r: '52%',
+              label: { fontSize: 12, fontWeight: 600 },
+              itemStyle: { borderWidth: 3 }
+            },
+            {
+              r0: '52%', r: '92%',
+              label: { fontSize: 10, align: 'right' },
+              itemStyle: { borderWidth: 2 }
+            }
+          ],
+          data: [
+            {
+              name: '权益类',
+              value: 45,
+              itemStyle: { color: '#ffd740' },
+              children: [
+                { name: '股票', value: 28, itemStyle: { color: '#ffd740' } },
+                { name: '基金', value: 12, itemStyle: { color: '#ffca28' } },
+                { name: '衍生品', value: 5, itemStyle: { color: '#ffb300' } }
+              ]
+            },
+            {
+              name: '固收类',
+              value: 35,
+              itemStyle: { color: '#00bfa5' },
+              children: [
+                { name: '债券', value: 22, itemStyle: { color: '#00bfa5' } },
+                { name: '货币', value: 13, itemStyle: { color: '#26a69a' } }
+              ]
+            },
+            {
+              name: '另类',
+              value: 20,
+              itemStyle: { color: '#ff9100' },
+              children: [
+                { name: '商品', value: 10, itemStyle: { color: '#ff9100' } },
+                { name: '不动产', value: 6, itemStyle: { color: '#e65100' } },
+                { name: '私募', value: 4, itemStyle: { color: '#bf360c' } }
+              ]
+            }
+          ],
+          animationType: 'expansion',
+          animationDuration: 1500,
+          animationEasing: 'cubicOut'
+        }]
+      });
+    }
+
+    // ============================================================
+    // CENTER: Global Capital Flow Map
+    // ============================================================
+
+    function initWorldMap() {
+      fetch('js/world.json')
+        .then(r => r.json())
+        .then(worldJson => {
+          echarts.registerMap('world', worldJson);
+          renderWorldMap();
+        })
+        .catch(() => {
+          const el = document.getElementById('chart-world-map');
+          el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:14px;">地图数据加载中...</div>';
+        });
+    }
+
+    function renderWorldMap() {
+      const finCenters = [
+        { name: '纽约', value: [-74.00, 40.71, 180] },
+        { name: '伦敦', value: [-0.12, 51.51, 160] },
+        { name: '上海', value: [121.48, 31.22, 150] },
+        { name: '香港', value: [114.17, 22.32, 140] },
+        { name: '东京', value: [139.69, 35.69, 130] },
+        { name: '新加坡', value: [103.82, 1.35, 120] },
+        { name: '法兰克福', value: [8.68, 50.11, 100] },
+        { name: '悉尼', value: [151.21, -33.87, 80] },
+        { name: '迪拜', value: [55.27, 25.20, 75] },
+        { name: '多伦多', value: [-79.38, 43.65, 70] },
+        { name: '苏黎世', value: [8.54, 47.38, 90] },
+        { name: '孟买', value: [72.88, 19.08, 85] },
+        { name: '首尔', value: [126.98, 37.57, 95] },
+        { name: '深圳', value: [114.07, 22.62, 110] }
+      ];
+
+      // Capital flow lines between major financial hubs
+      const flowLines = [
+        { coords: [[-74.00, 40.71], [-0.12, 51.51]] },   // NY <-> London
+        { coords: [[-0.12, 51.51], [-74.00, 40.71]] },
+        { coords: [[121.48, 31.22], [114.17, 22.32]] },   // Shanghai <-> HK
+        { coords: [[114.17, 22.32], [121.48, 31.22]] },
+        { coords: [[139.69, 35.69], [103.82, 1.35]] },    // Tokyo <-> Singapore
+        { coords: [[103.82, 1.35], [139.69, 35.69]] },
+        { coords: [[-74.00, 40.71], [121.48, 31.22]] },   // NY <-> Shanghai
+        { coords: [[121.48, 31.22], [-74.00, 40.71]] },
+        { coords: [[-0.12, 51.51], [8.68, 50.11]] },      // London <-> Frankfurt
+        { coords: [[8.68, 50.11], [8.54, 47.38]] },       // Frankfurt <-> Zurich
+        { coords: [[-0.12, 51.51], [55.27, 25.20]] },     // London <-> Dubai
+        { coords: [[55.27, 25.20], [72.88, 19.08]] },     // Dubai <-> Mumbai
+        { coords: [[114.17, 22.32], [103.82, 1.35]] },    // HK <-> Singapore
+        { coords: [[139.69, 35.69], [126.98, 37.57]] },   // Tokyo <-> Seoul
+        { coords: [[121.48, 31.22], [114.07, 22.62]] },   // Shanghai <-> Shenzhen
+        { coords: [[-74.00, 40.71], [-79.38, 43.65]] },   // NY <-> Toronto
+        { coords: [[103.82, 1.35], [151.21, -33.87]] },   // Singapore <-> Sydney
+        { coords: [[72.88, 19.08], [121.48, 31.22]] }     // Mumbai <-> Shanghai
+      ];
+
+      // Secondary / lower volume flow lines
+      const secondaryFlows = [
+        { coords: [[-74.00, 40.71], [139.69, 35.69]] },
+        { coords: [[-0.12, 51.51], [121.48, 31.22]] },
+        { coords: [[8.68, 50.11], [-74.00, 40.71]] },
+        { coords: [[126.98, 37.57], [114.17, 22.32]] },
+        { coords: [[151.21, -33.87], [139.69, 35.69]] },
+        { coords: [[55.27, 25.20], [-0.12, 51.51]] }
+      ];
+
+      createChart(document.getElementById('chart-world-map'), {
+        backgroundColor: 'transparent',
+        geo: {
+          map: 'world', roam: false, zoom: 1.25,
+          center: [20, 18], silent: false,
+          itemStyle: {
+            areaColor: '#0d1b3e',
+            borderColor: '#1a3a6a',
+            borderWidth: 0.6,
+            shadowColor: 'rgba(255, 215, 64, 0.03)',
+            shadowBlur: 8
+          },
+          emphasis: {
+            itemStyle: {
+              areaColor: '#152a5a',
+              borderColor: '#ffd740',
+              borderWidth: 1
+            },
+            label: { show: false }
+          }
+        },
+        series: [
+          // Financial center pulsing dots
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            data: finCenters.map(c => ({ name: c.name, value: c.value })),
+            symbolSize: function(val) { return Math.max(5, val[2] / 15); },
+            showEffectOn: 'render',
+            rippleEffect: { brushType: 'stroke', scale: 4, period: 4 },
+            itemStyle: {
+              color: '#ffd740',
+              shadowBlur: 12,
+              shadowColor: 'rgba(255, 215, 64, 0.6)'
+            },
+            label: {
+              show: true, formatter: '{b}', position: 'right',
+              fontSize: 10, color: 'rgba(255, 215, 64, 0.65)', distance: 5
+            },
+            zlevel: 2
+          },
+          // Primary capital flow lines (gold)
+          {
+            type: 'lines',
+            coordinateSystem: 'geo',
+            data: flowLines,
+            lineStyle: {
+              color: '#ffd740', width: 1.2, opacity: 0.3, curveness: 0.3
+            },
+            effect: {
+              show: true, period: 4, trailLength: 0.65,
+              color: '#ffd740', symbolSize: 3.5
+            },
+            zlevel: 1
+          },
+          // Secondary flow lines (amber)
+          {
+            type: 'lines',
+            coordinateSystem: 'geo',
+            data: secondaryFlows,
+            lineStyle: {
+              color: '#ff9100', width: 0.8, opacity: 0.2, curveness: 0.25
+            },
+            effect: {
+              show: true, period: 6, trailLength: 0.4,
+              color: '#ff9100', symbolSize: 2.5
+            },
+            zlevel: 1
+          }
+        ]
+      });
+    }
+
+    // ============================================================
+    // Panel 4: K线图 + 成交量 - Candlestick
+    // ============================================================
+
+    function initCandlestick() {
+      // Generate 30 candle data: [open, close, low, high]
+      const candleData = [];
+      const volumes = [];
+      const dates = [];
+      let basePrice = 3150;
+
+      for (let i = 0; i < 30; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - (30 - i));
+        dates.push((d.getMonth() + 1) + '/' + d.getDate());
+
+        const open = basePrice + DataGen.randomFloat(-30, 30, 2);
+        const range = DataGen.randomFloat(10, 60, 2);
+        const close = open + (Math.random() > 0.45 ? range : -range);
+        const low = Math.min(open, close) - DataGen.randomFloat(5, 25, 2);
+        const high = Math.max(open, close) + DataGen.randomFloat(5, 25, 2);
+
+        candleData.push([open, close, low, high]);
+        volumes.push(DataGen.random(80000, 350000));
+        basePrice = close;
+      }
+
+      // Calculate MA
+      function calcMA(dayCount) {
+        const result = [];
+        for (let i = 0; i < candleData.length; i++) {
+          if (i < dayCount - 1) { result.push('-'); continue; }
+          let sum = 0;
+          for (let j = 0; j < dayCount; j++) {
+            sum += candleData[i - j][1]; // close price
+          }
+          result.push((sum / dayCount).toFixed(2));
+        }
+        return result;
+      }
+
+      const ma5 = calcMA(5);
+      const ma10 = calcMA(10);
+
+      // Volume colors: red for up candle, green for down
+      const volumeColors = candleData.map(c => c[1] >= c[0] ? '#ff5252' : '#00e676');
+
+      createChart(document.getElementById('chart-candlestick'), {
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis',
+          axisPointer: { type: 'cross', crossStyle: { color: 'rgba(255,215,64,0.3)' } },
+          formatter: function(params) {
+            const d = params[0];
+            if (!d || !d.data) return '';
+            let html = d.axisValue + '<br/>';
+            if (params[0] && params[0].seriesName === 'K线') {
+              html += `开: ${d.data[1]}<br/>收: ${d.data[2]}<br/>低: ${d.data[3]}<br/>高: ${d.data[4]}`;
+            }
+            params.forEach(p => {
+              if (p.seriesName === 'MA5' || p.seriesName === 'MA10') {
+                html += `<br/>${p.seriesName}: ${p.data}`;
+              }
+            });
+            return html;
+          }
+        },
+        legend: {
+          data: ['K线', 'MA5', 'MA10'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        grid: [
+          { top: 22, right: 10, bottom: '32%', left: 46 },
+          { top: '74%', right: 10, bottom: 20, left: 46 }
+        ],
+        xAxis: [
+          {
+            type: 'category', data: dates,
+            axisLine: axisLineStyle,
+            axisLabel: { ...axisLabelStyle, show: false },
+            axisTick: { show: false },
+            gridIndex: 0
+          },
+          {
+            type: 'category', data: dates,
+            axisLine: axisLineStyle,
+            axisLabel: { ...axisLabelStyle, interval: 4, fontSize: 9 },
+            axisTick: { show: false },
+            gridIndex: 1
+          }
+        ],
+        yAxis: [
+          {
+            type: 'value',
+            scale: true,
+            splitLine: splitLineStyle,
+            axisLabel: { ...axisLabelStyle, fontSize: 9 },
+            gridIndex: 0
+          },
+          {
+            type: 'value',
+            splitLine: splitLineStyle,
+            axisLabel: { ...axisLabelStyle, fontSize: 9, formatter: function(v) { return (v / 10000).toFixed(0) + '万'; } },
+            gridIndex: 1
+          }
+        ],
+        series: [
+          {
+            name: 'K线',
+            type: 'candlestick',
+            data: candleData,
+            xAxisIndex: 0, yAxisIndex: 0,
+            itemStyle: {
+              color: '#ff5252',       // up candle fill (red in Chinese convention)
+              color0: '#00e676',      // down candle fill
+              borderColor: '#ff5252', // up border
+              borderColor0: '#00e676' // down border
+            }
+          },
+          {
+            name: 'MA5',
+            type: 'line',
+            data: ma5,
+            smooth: true, symbol: 'none',
+            xAxisIndex: 0, yAxisIndex: 0,
+            lineStyle: { color: '#ffd740', width: 1.5 }
+          },
+          {
+            name: 'MA10',
+            type: 'line',
+            data: ma10,
+            smooth: true, symbol: 'none',
+            xAxisIndex: 0, yAxisIndex: 0,
+            lineStyle: { color: '#00f2fe', width: 1.5 }
+          },
+          {
+            name: '成交量',
+            type: 'bar',
+            data: volumes.map((v, i) => ({
+              value: v,
+              itemStyle: {
+                color: candleData[i][1] >= candleData[i][0]
+                  ? 'rgba(255, 82, 82, 0.6)'
+                  : 'rgba(0, 230, 118, 0.6)'
+              }
+            })),
+            xAxisIndex: 1, yAxisIndex: 1,
+            barWidth: '60%'
+          }
+        ],
+        dataZoom: [{
+          type: 'inside',
+          xAxisIndex: [0, 1],
+          start: 0, end: 100
+        }],
+        animationDuration: 1200,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ============================================================
+    // Panel 5: 风控预警指标 - Three Gauges
+    // ============================================================
+
+    let gaugeCharts = {};
+
+    function initRiskGauges() {
+      const makeGauge = (name, value, color, maxVal) => ({
+        series: [{
+          type: 'gauge',
+          center: ['50%', '60%'], radius: '88%',
+          startAngle: 220, endAngle: -40,
+          min: 0, max: maxVal || 100,
+          pointer: {
+            show: true,
+            length: '55%',
+            width: 3,
+            itemStyle: { color: color }
+          },
+          progress: {
+            show: true, width: 10, roundCap: true,
+            itemStyle: { color: color }
+          },
+          axisLine: {
+            lineStyle: {
+              width: 10,
+              color: [[1, 'rgba(255, 215, 64, 0.06)']]
+            }
+          },
+          axisTick: { show: false },
+          splitLine: {
+            length: 6,
+            lineStyle: { color: 'rgba(255,215,64,0.15)', width: 1 }
+          },
+          axisLabel: { show: false },
+          detail: {
+            valueAnimation: true,
+            formatter: '{value}',
+            fontSize: 18, fontFamily: 'Rajdhani', fontWeight: 700,
+            color: color, offsetCenter: [0, '18%']
+          },
+          title: {
+            fontSize: 10, color: 'rgba(224,230,255,0.45)',
+            offsetCenter: [0, '62%']
+          },
+          data: [{ value, name }],
+          animationDuration: 1500,
+          animationEasing: 'bounceOut'
+        }]
+      });
+
+      gaugeCharts.volatility = createChart(document.getElementById('gauge-volatility'), makeGauge('市场波动率', 67, '#ffd740'));
+      gaugeCharts.liquidity = createChart(document.getElementById('gauge-liquidity'), makeGauge('流动性指数', 82, '#00e676'));
+      gaugeCharts.credit = createChart(document.getElementById('gauge-credit'), makeGauge('信用风险', 34, '#ff9100'));
+    }
+
+    // ============================================================
+    // Panel 6: 交易热度排行 - Horizontal Bar
+    // ============================================================
+
+    function initTradingHeat() {
+      const pairs = ['BTC/USDT', 'ETH/USDT', '贵州茅台', '中国平安', 'EUR/USD', '宁德时代', '招商银行', 'XAU/USD', '比亚迪', '五粮液'];
+      const values = [98542, 87321, 76543, 68432, 62187, 58742, 51234, 48921, 43567, 38942];
+      const maxVal = values[0];
+
+      createChart(document.getElementById('chart-trading-heat'), {
+        grid: { top: 4, right: 70, bottom: 4, left: 75 },
+        tooltip: {
+          ...tooltipConfig,
+          trigger: 'axis',
+          formatter: function(params) {
+            return params[0].name + '<br/>交易笔数: ' + params[0].value.toLocaleString();
+          }
+        },
+        xAxis: { type: 'value', show: false },
+        yAxis: {
+          type: 'category',
+          data: pairs.reverse(),
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            color: 'rgba(224,230,255,0.65)',
+            fontSize: 11,
+            fontFamily: '"Rajdhani", "Noto Sans SC", sans-serif'
+          },
+          inverse: false
+        },
+        series: [{
+          type: 'bar',
+          data: values.reverse().map((v, i) => {
+            const ratio = v / maxVal;
+            return {
+              value: v,
+              itemStyle: {
+                borderRadius: [0, 3, 3, 0],
+                color: {
+                  type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                  colorStops: [
+                    { offset: 0, color: 'rgba(255, 215, 64, 0.05)' },
+                    { offset: 0.5, color: `rgba(255, 215, 64, ${0.15 + ratio * 0.35})` },
+                    { offset: 1, color: `rgba(255, 145, 0, ${0.4 + ratio * 0.5})` }
+                  ]
+                }
+              }
+            };
+          }),
+          barWidth: '58%',
+          label: {
+            show: true, position: 'right',
+            color: 'rgba(255, 215, 64, 0.7)',
+            fontSize: 11, fontFamily: 'Rajdhani', fontWeight: 600,
+            formatter: function(p) { return (p.value / 1000).toFixed(1) + 'K'; }
+          },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 12,
+              shadowColor: 'rgba(255, 215, 64, 0.3)'
+            }
+          }
+        }],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ============================================================
+    // Live Data Updates
+    // ============================================================
+
+    function updateLiveData() {
+      // Update stock ticker prices slightly
+      const stockItems = document.querySelectorAll('.stock-item');
+      stockItems.forEach(item => {
+        const priceEl = item.querySelector('.stock-price');
+        const changeEl = item.querySelector('.stock-change');
+        if (priceEl && changeEl) {
+          let price = parseFloat(priceEl.textContent);
+          const delta = DataGen.randomFloat(-2, 2, 2);
+          price = Math.max(1, price + delta);
+          const changePct = DataGen.randomFloat(-5, 5, 2);
+          const isUp = changePct >= 0;
+
+          priceEl.textContent = price.toFixed(2);
+          priceEl.style.color = isUp ? '#ff5252' : '#00e676';
+          changeEl.textContent = (isUp ? '+' : '') + changePct.toFixed(2) + '%';
+          changeEl.className = 'stock-change ' + (isUp ? 'up' : 'down');
+        }
+      });
+
+      // Update gauges
+      if (gaugeCharts.volatility) {
+        gaugeCharts.volatility.setOption({
+          series: [{ data: [{ value: DataGen.random(40, 85), name: '市场波动率' }] }]
+        });
+      }
+      if (gaugeCharts.liquidity) {
+        gaugeCharts.liquidity.setOption({
+          series: [{ data: [{ value: DataGen.random(60, 95), name: '流动性指数' }] }]
+        });
+      }
+      if (gaugeCharts.credit) {
+        gaugeCharts.credit.setOption({
+          series: [{ data: [{ value: DataGen.random(15, 55), name: '信用风险' }] }]
+        });
+      }
+
+      // Update map stats
+      const volumes = ['2.84', '2.91', '3.02', '2.76', '2.95', '3.11', '2.88'];
+      document.getElementById('ms-volume').textContent = '¥' + volumes[DataGen.random(0, volumes.length - 1)] + 'T';
+      document.getElementById('ms-accounts').textContent = (1284521 + DataGen.random(-5000, 8000)).toLocaleString();
+      document.getElementById('ms-large').textContent = (3842 + DataGen.random(-50, 80)).toLocaleString();
+      document.getElementById('ms-risk').textContent = (127 + DataGen.random(-10, 15));
+    }
+  </script>
+</body>
+</html>

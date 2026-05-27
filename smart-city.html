@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataVision - 智慧城市监控中心</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    /* ====== Smart City Page Specific Styles ====== */
+
+    /* Population hero display */
+    .pop-hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 0 0;
+    }
+    .pop-hero .number-display {
+      font-size: 44px;
+      letter-spacing: 3px;
+      text-shadow: 0 0 25px rgba(0, 242, 254, 0.4), 0 0 50px rgba(0, 242, 254, 0.12);
+    }
+    .pop-hero .number-unit {
+      font-size: 14px;
+      margin-bottom: 7px;
+    }
+
+    /* Congestion level badge */
+    .congestion-level {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 6px 0 4px;
+    }
+    .congestion-number {
+      font-family: var(--font-number);
+      font-size: 40px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 2px;
+    }
+    .congestion-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    .congestion-badge.moderate {
+      background: rgba(255, 145, 0, 0.15);
+      color: var(--orange);
+      border: 1px solid rgba(255, 145, 0, 0.3);
+    }
+    .congestion-badge.good {
+      background: rgba(0, 230, 118, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+    .congestion-badge.heavy {
+      background: rgba(255, 82, 82, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(255, 82, 82, 0.3);
+    }
+
+    /* Center panel: city heatmap */
+    .center-map-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(0, 242, 254, 0.03) 0%, rgba(10, 14, 39, 0.6) 100%);
+      border: 1px solid var(--cyan-15);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .center-map-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      animation: scanLine 4s ease-in-out infinite;
+      z-index: 2;
+    }
+    .map-title-overlay {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      text-align: center;
+    }
+    .map-title-overlay h2 {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--cyan);
+      text-shadow: 0 0 20px var(--cyan-30);
+    }
+    .map-title-overlay p {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .map-stats-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+    .map-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 14, 39, 0.75);
+      padding: 6px 16px;
+      border-radius: 4px;
+      border: 1px solid var(--cyan-08);
+      backdrop-filter: blur(4px);
+    }
+    .map-stat .ms-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .map-stat .ms-label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .map-stat .ms-value {
+      font-family: var(--font-number);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* AQI large display */
+    .aqi-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 8px 0 4px;
+    }
+    .aqi-number {
+      font-family: var(--font-number);
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 3px;
+    }
+    .aqi-info {
+      text-align: left;
+    }
+    .aqi-level {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .aqi-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* AQI pollutant grid */
+    .pollutant-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      padding: 4px 0;
+    }
+    .pollutant-item {
+      background: var(--cyan-05);
+      border: 1px solid var(--cyan-08);
+      border-radius: var(--radius);
+      padding: 7px 8px;
+      text-align: center;
+    }
+    .pollutant-item .p-name {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .pollutant-item .p-value {
+      font-family: var(--font-number);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--cyan);
+      line-height: 1.2;
+    }
+    .pollutant-item .p-unit {
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    /* Safety events total */
+    .safety-total {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 4px 0 2px;
+    }
+    .safety-total .st-number {
+      font-family: var(--font-number);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--orange);
+      text-shadow: 0 0 15px rgba(255, 145, 0, 0.3);
+      line-height: 1;
+    }
+    .safety-total .st-label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">DATAVISION</div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <canvas id="particles-canvas"></canvas>
+    <div class="page-transition-overlay"></div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">DATAVISION</div>
+          <div class="logo-subtitle">SMART CITY COMMAND CENTER</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-item" onclick="navigateTo('index.html'); return false;">🌍 主控中心</a>
+        <a href="smart-city.html" class="nav-item active" onclick="navigateTo('smart-city.html'); return false;">🏙️ 智慧城市</a>
+        <a href="cyber-security.html" class="nav-item" onclick="navigateTo('cyber-security.html'); return false;">🛡️ 网络安全</a>
+        <a href="industrial-iot.html" class="nav-item" onclick="navigateTo('industrial-iot.html'); return false;">🏭 工业物联网</a>
+        <a href="financial.html" class="nav-item" onclick="navigateTo('financial.html'); return false;">💹 金融交易</a>
+        <a href="environmental.html" class="nav-item" onclick="navigateTo('environmental.html'); return false;">🌿 环境监测</a>
+        <a href="healthcare.html" class="nav-item" onclick="navigateTo('healthcare.html'); return false;">🏥 医疗健康</a>
+      </nav>
+      <div class="header-right">
+        <div>
+          <div class="header-datetime" id="header-time">00:00:00</div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-body">
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 1: 城市人口流动 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">👥</span> 城市人口流动</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 实时</div>
+          </div>
+          <div class="panel-body">
+            <div class="pop-hero">
+              <div class="number-display" id="pop-total">0</div>
+              <span class="number-unit">万人</span>
+            </div>
+            <div class="number-label" style="text-align:center; margin-bottom: 4px;">CITY POPULATION FLOW</div>
+            <div class="divider"></div>
+            <div class="stats-row">
+              <div class="stat-item">
+                <div class="stat-value text-green" id="pop-in">0</div>
+                <div class="stat-label">流入</div>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <div class="stat-value text-red" id="pop-out">0</div>
+                <div class="stat-label">流出</div>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <div class="stat-value text-cyan" id="pop-net">0</div>
+                <div class="stat-label">净增</div>
+              </div>
+            </div>
+            <div id="chart-pop-flow" class="chart-container" style="height: 90px;"></div>
+          </div>
+        </div>
+
+        <!-- Panel 2: 交通拥堵指数 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🚦</span> 交通拥堵指数</div>
+            <div class="panel-extra"><span class="data-tag neutral">LIVE</span></div>
+          </div>
+          <div class="panel-body">
+            <div class="congestion-level">
+              <div class="congestion-number text-orange" id="congestion-idx">1.8</div>
+              <div class="congestion-badge moderate" id="congestion-badge">中度拥堵</div>
+            </div>
+            <div id="chart-traffic-radar" class="chart-container" style="flex:1; min-height:0;"></div>
+          </div>
+        </div>
+
+        <!-- Panel 3: 公共设施使用率 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🏗️</span> 公共设施使用率</div>
+            <div class="panel-extra">24H</div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-facility" class="chart-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CENTER COLUMN ===== -->
+      <div class="center-column">
+        <div class="center-main center-map-panel">
+          <div class="map-title-overlay">
+            <h2>SMART CITY REAL-TIME MONITOR</h2>
+            <p>城市实时态势感知</p>
+          </div>
+          <div id="chart-city-heatmap" class="chart-container"></div>
+          <div class="map-stats-overlay">
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--green);box-shadow:0 0 8px var(--green-50)"></div>
+              <div>
+                <div class="ms-label">监控摄像头</div>
+                <div class="ms-value" id="ms-cameras">12,847</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan-50)"></div>
+              <div>
+                <div class="ms-label">传感器</div>
+                <div class="ms-value" id="ms-sensors">38,291</div>
+              </div>
+            </div>
+            <div class="map-stat">
+              <div class="ms-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange-50)"></div>
+              <div>
+                <div class="ms-label">实时告警</div>
+                <div class="ms-value" id="ms-alerts">23</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="column">
+        <!-- Panel 4: 空气质量 AQI -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🌬️</span> 空气质量 AQI</div>
+            <div class="panel-extra"><span class="status-dot online"></span> 监测中</div>
+          </div>
+          <div class="panel-body">
+            <div class="aqi-display">
+              <div class="aqi-number" id="aqi-value" style="color: var(--green);">42</div>
+              <div class="aqi-info">
+                <div class="aqi-level" id="aqi-level" style="color: var(--green);">优</div>
+                <div class="aqi-desc">空气质量优良</div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="pollutant-grid">
+              <div class="pollutant-item">
+                <div class="p-name">PM2.5</div>
+                <div class="p-value" id="pm25">18</div>
+                <div class="p-unit">μg/m³</div>
+              </div>
+              <div class="pollutant-item">
+                <div class="p-name">PM10</div>
+                <div class="p-value" id="pm10">35</div>
+                <div class="p-unit">μg/m³</div>
+              </div>
+              <div class="pollutant-item">
+                <div class="p-name">SO₂</div>
+                <div class="p-value" id="so2">8</div>
+                <div class="p-unit">μg/m³</div>
+              </div>
+              <div class="pollutant-item">
+                <div class="p-name">NO₂</div>
+                <div class="p-value" id="no2">24</div>
+                <div class="p-unit">μg/m³</div>
+              </div>
+              <div class="pollutant-item">
+                <div class="p-name">CO</div>
+                <div class="p-value" id="co-val">0.6</div>
+                <div class="p-unit">mg/m³</div>
+              </div>
+              <div class="pollutant-item">
+                <div class="p-name">O₃</div>
+                <div class="p-value" id="o3">82</div>
+                <div class="p-unit">μg/m³</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 5: 能源消耗趋势 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">⚡</span> 能源消耗趋势</div>
+            <div class="panel-extra"><span class="data-tag up">↑ 3.2%</span></div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-energy" class="chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Panel 6: 城市安全事件 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title"><span class="icon">🚨</span> 城市安全事件</div>
+            <div class="panel-extra">今日</div>
+          </div>
+          <div class="panel-body">
+            <div class="safety-total">
+              <div class="st-number" id="safety-total">186</div>
+              <div class="st-label">今日事件总数</div>
+            </div>
+            <div id="chart-safety" class="chart-container" style="flex:1; min-height:0;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // ============================================================
+    // Smart City Dashboard - Charts Initialization
+    // ============================================================
+
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(initPage, 200);
+    });
+
+    // Store chart references for updates
+    let chartPopFlow, chartTrafficRadar, chartFacility, chartCityHeatmap, chartEnergy, chartSafety;
+
+    function initPage() {
+      // Animate hero numbers
+      animateValue(document.getElementById('pop-total'), 0, 2186, 2200);
+      animateValue(document.getElementById('pop-in'), 0, 12840, 2000);
+      animateValue(document.getElementById('pop-out'), 0, 9650, 2000);
+      animateValue(document.getElementById('pop-net'), 0, 3190, 2000);
+
+      // Initialize all charts
+      initPopFlow();
+      initTrafficRadar();
+      initFacility();
+      initCityHeatmap();
+      initEnergy();
+      initSafety();
+
+      // Periodic updates every 4 seconds
+      setInterval(updateLiveData, 4000);
+    }
+
+    // ---- Panel 1: Population Flow Area Chart ----
+    function initPopFlow() {
+      var hours = [];
+      for (var i = 0; i < 24; i++) {
+        hours.push(String(i).padStart(2, '0') + ':00');
+      }
+      chartPopFlow = createChart(document.getElementById('chart-pop-flow'), {
+        grid: { top: 8, right: 8, bottom: 20, left: 36 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        xAxis: {
+          type: 'category',
+          data: hours,
+          boundaryGap: false,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, interval: 5 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: { show: false }
+        },
+        series: [{
+          type: 'line',
+          data: generatePopData(),
+          smooth: true, symbol: 'none',
+          lineStyle: { color: '#00f2fe', width: 1.5 },
+          areaStyle: {
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 242, 254, 0.3)' },
+                { offset: 1, color: 'rgba(0, 242, 254, 0.02)' }
+              ]
+            }
+          }
+        }],
+        animationDuration: 1200
+      });
+    }
+
+    function generatePopData() {
+      // Simulated hourly population flow pattern: peak at morning/evening
+      var base = [30, 20, 15, 12, 10, 18, 35, 65, 88, 82, 75, 70, 68, 72, 78, 80, 90, 95, 85, 70, 55, 45, 38, 32];
+      return base.map(function(v) { return v + DataGen.random(-8, 8); });
+    }
+
+    // ---- Panel 2: Traffic Congestion Radar ----
+    function initTrafficRadar() {
+      chartTrafficRadar = createChart(document.getElementById('chart-traffic-radar'), {
+        tooltip: tooltipConfig,
+        radar: {
+          indicator: [
+            { name: '拥堵指数', max: 5 },
+            { name: '车流密度', max: 100 },
+            { name: '平均车速', max: 80 },
+            { name: '事故率', max: 10 },
+            { name: '公交准点率', max: 100 },
+            { name: '地铁客流', max: 100 }
+          ],
+          center: ['50%', '52%'],
+          radius: '65%',
+          shape: 'polygon',
+          splitNumber: 4,
+          axisName: {
+            color: 'rgba(224, 230, 255, 0.55)',
+            fontSize: 10
+          },
+          splitArea: {
+            areaStyle: {
+              color: ['rgba(0, 242, 254, 0.02)', 'rgba(0, 242, 254, 0.04)', 'rgba(0, 242, 254, 0.02)', 'rgba(0, 242, 254, 0.04)']
+            }
+          },
+          axisLine: { lineStyle: { color: 'rgba(0, 242, 254, 0.1)' } },
+          splitLine: { lineStyle: { color: 'rgba(0, 242, 254, 0.08)' } }
+        },
+        series: [{
+          type: 'radar',
+          data: [{
+            value: getTrafficData(),
+            name: '交通指标',
+            lineStyle: { color: '#00f2fe', width: 2 },
+            areaStyle: { color: 'rgba(0, 242, 254, 0.15)' },
+            itemStyle: { color: '#00f2fe' },
+            symbol: 'circle',
+            symbolSize: 5
+          }, {
+            value: getTrafficData(),
+            name: '昨日对比',
+            lineStyle: { color: '#7c3aed', width: 1.5, type: 'dashed' },
+            areaStyle: { color: 'rgba(124, 58, 237, 0.08)' },
+            itemStyle: { color: '#7c3aed' },
+            symbol: 'circle',
+            symbolSize: 4
+          }],
+          animationDuration: 1500
+        }],
+        legend: {
+          data: ['交通指标', '昨日对比'],
+          bottom: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        }
+      });
+    }
+
+    function getTrafficData() {
+      return [
+        DataGen.randomFloat(1.2, 3.5, 1),
+        DataGen.random(40, 85),
+        DataGen.random(20, 65),
+        DataGen.randomFloat(0.5, 6, 1),
+        DataGen.random(70, 98),
+        DataGen.random(50, 95)
+      ];
+    }
+
+    // ---- Panel 3: Facility Usage Stacked Area ----
+    function initFacility() {
+      var hours = [];
+      for (var i = 0; i < 24; i++) {
+        hours.push(String(i).padStart(2, '0') + ':00');
+      }
+
+      var makeArea = function(name, color, alphaTop, data) {
+        return {
+          name: name,
+          type: 'line',
+          stack: 'facility',
+          data: data,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { color: color, width: 1.5 },
+          areaStyle: {
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: alphaTop },
+                { offset: 1, color: 'rgba(0,0,0,0)' }
+              ]
+            }
+          }
+        };
+      };
+
+      chartFacility = createChart(document.getElementById('chart-facility'), {
+        grid: { top: 28, right: 12, bottom: 25, left: 36 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        legend: {
+          data: ['供水', '供电', '燃气', '网络'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category',
+          data: hours,
+          boundaryGap: false,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, interval: 5 },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: { ...axisLabelStyle, formatter: '{value}%' }
+        },
+        series: [
+          makeArea('供水', '#4facfe', 'rgba(79, 172, 254, 0.25)', genFacilityData(60, 90)),
+          makeArea('供电', '#00f2fe', 'rgba(0, 242, 254, 0.2)', genFacilityData(55, 85)),
+          makeArea('燃气', '#00e676', 'rgba(0, 230, 118, 0.2)', genFacilityData(30, 60)),
+          makeArea('网络', '#7c3aed', 'rgba(124, 58, 237, 0.2)', genFacilityData(40, 75))
+        ],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    function genFacilityData(min, max) {
+      return DataGen.generateTimeSeries(24, min, max).map(function(v) {
+        return Math.min(100, Math.max(0, v));
+      });
+    }
+
+    // ---- Center: City Heatmap ----
+    function initCityHeatmap() {
+      var heatmapData = [];
+      var scatterData = [];
+      var eventData = [];
+
+      // Zone names for the 10x10 grid
+      var zoneNames = ['金融区', '科技园', '商业区', '住宅区', '工业区', '文教区', '医疗区', '交通枢纽', '公园绿地', '行政区'];
+
+      // Generate 10x10 heatmap grid data
+      for (var i = 0; i < 10; i++) {
+        for (var j = 0; j < 10; j++) {
+          var density = DataGen.random(10, 100);
+          heatmapData.push([i, j, density]);
+        }
+      }
+
+      // Generate real-time event points (effectScatter overlay)
+      var eventTypes = [
+        { name: '交通事件', color: '#ff9100' },
+        { name: '设备告警', color: '#ff5252' },
+        { name: '人流密集', color: '#00f2fe' },
+        { name: '环保监测', color: '#00e676' },
+        { name: '施工作业', color: '#ffd740' }
+      ];
+      for (var k = 0; k < 15; k++) {
+        var evt = eventTypes[k % eventTypes.length];
+        eventData.push({
+          name: evt.name,
+          value: [DataGen.random(0, 9), DataGen.random(0, 9), DataGen.random(20, 80)],
+          itemStyle: { color: evt.color }
+        });
+      }
+
+      chartCityHeatmap = createChart(document.getElementById('chart-city-heatmap'), {
+        tooltip: {
+          ...tooltipConfig,
+          formatter: function(params) {
+            if (params.seriesType === 'heatmap') {
+              return '区域 [' + zoneNames[params.value[0]] + ',' + zoneNames[params.value[1]] + ']<br/>人口密度: <span style="color:#00f2fe;font-weight:700">' + params.value[2] + '</span>';
+            } else {
+              return params.data.name + '<br/>强度: <span style="color:#00f2fe;font-weight:700">' + params.value[2] + '</span>';
+            }
+          }
+        },
+        grid: { top: 50, right: 40, bottom: 60, left: 50 },
+        xAxis: {
+          type: 'category',
+          data: zoneNames,
+          axisLine: axisLineStyle,
+          axisLabel: { ...axisLabelStyle, interval: 0, rotate: 30 },
+          axisTick: { show: false },
+          splitArea: { show: true, areaStyle: { color: ['rgba(0,242,254,0.02)', 'rgba(0,242,254,0.04)'] } }
+        },
+        yAxis: {
+          type: 'category',
+          data: zoneNames,
+          axisLine: axisLineStyle,
+          axisLabel: axisLabelStyle,
+          axisTick: { show: false },
+          splitArea: { show: true, areaStyle: { color: ['rgba(0,242,254,0.02)', 'rgba(0,242,254,0.04)'] } }
+        },
+        visualMap: {
+          min: 0,
+          max: 100,
+          calculable: true,
+          orient: 'vertical',
+          right: 2,
+          top: 'center',
+          itemHeight: 180,
+          itemWidth: 10,
+          textStyle: { color: 'rgba(224,230,255,0.45)', fontSize: 10 },
+          inRange: {
+            color: ['#050a1a', '#0a1e3d', '#0d3b6e', '#1565a0', '#2196f3', '#00bcd4', '#00f2fe', '#4de8c2', '#00e676']
+          },
+          borderColor: 'transparent'
+        },
+        series: [
+          {
+            name: '城市热力',
+            type: 'heatmap',
+            data: heatmapData,
+            label: { show: false },
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 15,
+                shadowColor: 'rgba(0, 242, 254, 0.5)'
+              }
+            },
+            itemStyle: {
+              borderColor: 'rgba(5, 10, 26, 0.5)',
+              borderWidth: 2,
+              borderRadius: 2
+            },
+            animationDuration: 1500
+          },
+          {
+            name: '实时事件',
+            type: 'effectScatter',
+            coordinateSystem: 'cartesian2d',
+            data: eventData,
+            symbolSize: function(val) { return Math.max(8, val[2] / 5); },
+            showEffectOn: 'render',
+            rippleEffect: {
+              brushType: 'stroke',
+              scale: 3.5,
+              period: 3
+            },
+            zlevel: 2,
+            label: {
+              show: false
+            }
+          }
+        ]
+      });
+    }
+
+    // ---- Panel 5: Energy Consumption Multi-Line ----
+    function initEnergy() {
+      var days = DataGen.generateDayLabels(7);
+
+      var makeLine = function(name, color, alphaTop, data) {
+        return {
+          name: name,
+          type: 'line',
+          data: data,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { color: color, width: 2 },
+          areaStyle: {
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: alphaTop },
+                { offset: 1, color: 'rgba(0,0,0,0)' }
+              ]
+            }
+          }
+        };
+      };
+
+      chartEnergy = createChart(document.getElementById('chart-energy'), {
+        grid: { top: 30, right: 12, bottom: 25, left: 42 },
+        tooltip: { ...tooltipConfig, trigger: 'axis' },
+        legend: {
+          data: ['电力', '水力', '燃气'],
+          top: 0, right: 0,
+          textStyle: { color: 'rgba(224,230,255,0.5)', fontSize: 10 },
+          itemWidth: 12, itemHeight: 3
+        },
+        xAxis: {
+          type: 'category',
+          data: days,
+          boundaryGap: false,
+          axisLine: axisLineStyle,
+          axisLabel: axisLabelStyle,
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: splitLineStyle,
+          axisLabel: { ...axisLabelStyle, formatter: '{value}' }
+        },
+        series: [
+          makeLine('电力', '#00f2fe', 'rgba(0, 242, 254, 0.2)', DataGen.generateTimeSeries(7, 4200, 5800)),
+          makeLine('水力', '#4facfe', 'rgba(79, 172, 254, 0.15)', DataGen.generateTimeSeries(7, 2800, 4200)),
+          makeLine('燃气', '#ff9100', 'rgba(255, 145, 0, 0.15)', DataGen.generateTimeSeries(7, 1500, 2800))
+        ],
+        animationDuration: 1500,
+        animationEasing: 'cubicOut'
+      });
+    }
+
+    // ---- Panel 6: Safety Events Nightingale Rose ----
+    function initSafety() {
+      chartSafety = createChart(document.getElementById('chart-safety'), {
+        tooltip: { ...tooltipConfig, trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        series: [{
+          type: 'pie',
+          roseType: 'area',
+          radius: ['18%', '72%'],
+          center: ['50%', '50%'],
+          itemStyle: {
+            borderColor: 'rgba(5, 10, 26, 0.8)',
+            borderWidth: 2,
+            borderRadius: 4
+          },
+          label: {
+            show: true,
+            color: 'rgba(224, 230, 255, 0.6)',
+            fontSize: 10,
+            formatter: '{b}\n{c}',
+            lineHeight: 14
+          },
+          labelLine: {
+            lineStyle: { color: 'rgba(0, 242, 254, 0.2)' },
+            length: 10,
+            length2: 12
+          },
+          emphasis: {
+            label: { fontSize: 12, fontWeight: 'bold', color: '#e0e6ff' },
+            itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,242,254,0.3)' }
+          },
+          data: getSafetyData(),
+          animationType: 'scale',
+          animationEasing: 'elasticOut',
+          animationDuration: 1500
+        }]
+      });
+    }
+
+    function getSafetyData() {
+      return [
+        { value: DataGen.random(35, 55), name: '交通事故', itemStyle: { color: '#ff9100' } },
+        { value: DataGen.random(12, 25), name: '火灾', itemStyle: { color: '#ff5252' } },
+        { value: DataGen.random(28, 45), name: '治安', itemStyle: { color: '#4facfe' } },
+        { value: DataGen.random(5, 12), name: '自然灾害', itemStyle: { color: '#7c3aed' } },
+        { value: DataGen.random(20, 38), name: '医疗急救', itemStyle: { color: '#00e676' } },
+        { value: DataGen.random(15, 28), name: '其他', itemStyle: { color: '#ffd740' } }
+      ];
+    }
+
+    // ============================================================
+    // Live Data Updates (every 4 seconds)
+    // ============================================================
+    function updateLiveData() {
+      // --- Population ---
+      var popEl = document.getElementById('pop-total');
+      var curPop = parseInt((popEl.textContent || '0').replace(/,/g, '')) || 2186;
+      var nextPop = curPop + DataGen.random(-15, 25);
+      animateValue(popEl, curPop, nextPop, 1200);
+
+      var inEl = document.getElementById('pop-in');
+      animateValue(inEl, parseInt((inEl.textContent || '0').replace(/,/g, '')) || 12840, 12840 + DataGen.random(-200, 300), 1000);
+      var outEl = document.getElementById('pop-out');
+      animateValue(outEl, parseInt((outEl.textContent || '0').replace(/,/g, '')) || 9650, 9650 + DataGen.random(-200, 200), 1000);
+      var netEl = document.getElementById('pop-net');
+      animateValue(netEl, parseInt((netEl.textContent || '0').replace(/,/g, '')) || 3190, 3190 + DataGen.random(-50, 100), 1000);
+
+      // Update population flow chart
+      if (chartPopFlow) {
+        chartPopFlow.setOption({
+          series: [{ data: generatePopData() }]
+        });
+      }
+
+      // --- Traffic Radar ---
+      var congIdx = DataGen.randomFloat(1.0, 3.8, 1);
+      var congEl = document.getElementById('congestion-idx');
+      congEl.textContent = congIdx;
+      var badgeEl = document.getElementById('congestion-badge');
+      if (congIdx < 1.5) {
+        congEl.className = 'congestion-number text-green';
+        badgeEl.className = 'congestion-badge good';
+        badgeEl.textContent = '畅通';
+      } else if (congIdx < 2.5) {
+        congEl.className = 'congestion-number text-orange';
+        badgeEl.className = 'congestion-badge moderate';
+        badgeEl.textContent = '中度拥堵';
+      } else {
+        congEl.className = 'congestion-number text-red';
+        badgeEl.className = 'congestion-badge heavy';
+        badgeEl.textContent = '严重拥堵';
+      }
+
+      if (chartTrafficRadar) {
+        chartTrafficRadar.setOption({
+          series: [{
+            data: [
+              { value: getTrafficData(), name: '交通指标' },
+              { value: getTrafficData(), name: '昨日对比' }
+            ]
+          }]
+        });
+      }
+
+      // --- AQI ---
+      var aqi = DataGen.random(25, 120);
+      var aqiEl = document.getElementById('aqi-value');
+      var aqiLevelEl = document.getElementById('aqi-level');
+      aqiEl.textContent = aqi;
+      if (aqi <= 50) {
+        aqiEl.style.color = 'var(--green)';
+        aqiLevelEl.style.color = 'var(--green)';
+        aqiLevelEl.textContent = '优';
+      } else if (aqi <= 100) {
+        aqiEl.style.color = 'var(--yellow)';
+        aqiLevelEl.style.color = 'var(--yellow)';
+        aqiLevelEl.textContent = '良';
+      } else {
+        aqiEl.style.color = 'var(--orange)';
+        aqiLevelEl.style.color = 'var(--orange)';
+        aqiLevelEl.textContent = '轻度污染';
+      }
+
+      document.getElementById('pm25').textContent = DataGen.random(8, 55);
+      document.getElementById('pm10').textContent = DataGen.random(15, 75);
+      document.getElementById('so2').textContent = DataGen.random(3, 20);
+      document.getElementById('no2').textContent = DataGen.random(10, 50);
+      document.getElementById('co-val').textContent = DataGen.randomFloat(0.3, 1.5, 1);
+      document.getElementById('o3').textContent = DataGen.random(40, 150);
+
+      // --- Center heatmap events ---
+      if (chartCityHeatmap) {
+        var newEvents = [];
+        var eventTypes = [
+          { name: '交通事件', color: '#ff9100' },
+          { name: '设备告警', color: '#ff5252' },
+          { name: '人流密集', color: '#00f2fe' },
+          { name: '环保监测', color: '#00e676' },
+          { name: '施工作业', color: '#ffd740' }
+        ];
+        for (var i = 0; i < 15; i++) {
+          var evt = eventTypes[i % eventTypes.length];
+          newEvents.push({
+            name: evt.name,
+            value: [DataGen.random(0, 9), DataGen.random(0, 9), DataGen.random(20, 80)],
+            itemStyle: { color: evt.color }
+          });
+        }
+        chartCityHeatmap.setOption({
+          series: [
+            { /* heatmap stays */ },
+            { data: newEvents }
+          ]
+        });
+      }
+
+      // --- Bottom stats ---
+      document.getElementById('ms-alerts').textContent = DataGen.random(8, 42);
+
+      // --- Safety events ---
+      var safetyData = getSafetyData();
+      var total = safetyData.reduce(function(sum, d) { return sum + d.value; }, 0);
+      document.getElementById('safety-total').textContent = total;
+      if (chartSafety) {
+        chartSafety.setOption({
+          series: [{ data: safetyData }]
+        });
+      }
+    }
+  </script>
+</body>
+</html>
